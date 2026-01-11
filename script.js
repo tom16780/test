@@ -4,6 +4,10 @@ const houses = [
     name: "Maple House",
     neighbor: "Nina the Watchful",
     district: 1,
+    job: "Night-shift mail sorter",
+    goal: "Keep the block in perfect order",
+    routine: "Sleeps by day, patrols the porch at night",
+    quirks: "Counts every footstep out loud",
     puzzle: {
       type: "sequence",
       prompt: "Set the porch lights in the right order: 1 → 2 → 3.",
@@ -17,6 +21,10 @@ const houses = [
     name: "Oak House",
     neighbor: "Gus the Gadgeteer",
     district: 1,
+    job: "DIY radio tinkerer",
+    goal: "Silence every squeak in the street",
+    routine: "Fixes gadgets before sunrise",
+    quirks: "Writes repair notes on napkins",
     puzzle: {
       type: "riddle",
       prompt: "Which tool would silence a creaky door?",
@@ -31,6 +39,10 @@ const houses = [
     name: "Pine House",
     neighbor: "Mara the Mapper",
     district: 1,
+    job: "Community cartographer",
+    goal: "Plot every sound wave",
+    routine: "Logs signal data at dusk",
+    quirks: "Labels cupboards by compass direction",
     puzzle: {
       type: "tuner",
       prompt: "Tune the radio slider to 60 to calm the chatter.",
@@ -44,6 +56,10 @@ const houses = [
     name: "Cedar House",
     neighbor: "Ivy the Sleeper",
     district: 2,
+    job: "Nap schedule consultant",
+    goal: "Protect her dream journal",
+    routine: "Dozes to wind chimes at noon",
+    quirks: "Falls asleep mid-sentence",
     puzzle: {
       type: "code",
       prompt: "Find the sleep routine code (3 digits).",
@@ -57,6 +73,10 @@ const houses = [
     name: "Birch House",
     neighbor: "Theo the Gardener",
     district: 2,
+    job: "Botanical stylist",
+    goal: "Keep the garden in bloom order",
+    routine: "Watering sprints before breakfast",
+    quirks: "Names every plant in rhyme",
     puzzle: {
       type: "pattern",
       prompt: "Select the plant colors in bloom order: red → yellow → blue.",
@@ -71,6 +91,10 @@ const houses = [
     name: "Willow House",
     neighbor: "Rae the Storyteller",
     district: 3,
+    job: "Late-night podcaster",
+    goal: "Gather the perfect true story",
+    routine: "Records monologues after 9 PM",
+    quirks: "Narrates footsteps like a sports game",
     puzzle: {
       type: "logic",
       prompt: "Choose the true statement to calm Rae.",
@@ -95,6 +119,10 @@ const state = {
   inventory: new Set(),
   unlockedDistricts: 1,
   behaviorLog: [],
+  controllerActive: false,
+  focusIndex: 0,
+  lastAxisMove: 0,
+  lastButtonPress: 0,
 };
 
 const houseGrid = document.getElementById("house-grid");
@@ -104,6 +132,8 @@ const neighborsSaved = document.getElementById("neighbors-saved");
 const districtsUnlocked = document.getElementById("districts-unlocked");
 const inventoryList = document.getElementById("inventory-list");
 const behaviorFeed = document.getElementById("behavior-feed");
+const profileCard = document.getElementById("profile-card");
+const controllerStatus = document.getElementById("controller-status");
 const startBtn = document.getElementById("start-btn");
 const resetBtn = document.getElementById("reset-btn");
 const soundBtn = document.getElementById("sound-btn");
@@ -188,6 +218,10 @@ function renderHouses() {
     const neighbor = document.createElement("p");
     neighbor.textContent = `Neighbor: ${house.neighbor}`;
 
+    const role = document.createElement("p");
+    role.className = "muted";
+    role.textContent = `Job: ${house.job}`;
+
     const district = document.createElement("p");
     district.className = "muted";
     district.textContent = `District ${house.district}`;
@@ -198,9 +232,11 @@ function renderHouses() {
     action.disabled = !isUnlocked;
     action.addEventListener("click", () => selectHouse(house));
 
-    card.append(statusBadge, title, neighbor, district, action);
+    card.append(statusBadge, title, neighbor, role, district, action);
     houseGrid.appendChild(card);
   });
+
+  syncFocusableElements();
 }
 
 function renderInventory() {
@@ -222,12 +258,7 @@ function renderInventory() {
 function pushBehaviorLog(text) {
   state.behaviorLog.unshift(text);
   state.behaviorLog = state.behaviorLog.slice(0, 6);
-  behaviorFeed.innerHTML = "";
-  state.behaviorLog.forEach((entry) => {
-    const li = document.createElement("li");
-    li.textContent = entry;
-    behaviorFeed.appendChild(li);
-  });
+  renderBehaviorFeed();
 }
 
 function selectHouse(house) {
@@ -236,7 +267,23 @@ function selectHouse(house) {
   state.patternInput = [];
   renderHouses();
   renderPuzzle(house);
+  renderProfile(house);
   playTone(440, 0.15);
+}
+
+function renderProfile(house) {
+  if (!house) {
+    profileCard.innerHTML = "<p class=\"muted\">Select a house to view the neighbor's life, job, and goals.</p>";
+    return;
+  }
+
+  profileCard.innerHTML = `
+    <p><strong>${house.neighbor}</strong> (${house.name})</p>
+    <p><strong>Job:</strong> ${house.job}</p>
+    <p><strong>Goal:</strong> ${house.goal}</p>
+    <p><strong>Routine:</strong> ${house.routine}</p>
+    <p><strong>Quirk:</strong> ${house.quirks}</p>
+  `;
 }
 
 function renderPuzzle(house) {
@@ -394,6 +441,8 @@ function renderPuzzle(house) {
     solvedMsg.textContent = "This neighbor is calm. You can replay the puzzle for fun.";
     puzzleArea.appendChild(solvedMsg);
   }
+
+  syncFocusableElements();
 }
 
 function handleSequence(value, display, house) {
@@ -495,6 +544,7 @@ function resetGame() {
   renderHouses();
   renderInventory();
   renderBehaviorFeed();
+  renderProfile(null);
 }
 
 function renderBehaviorFeed() {
@@ -515,7 +565,110 @@ function renderBehaviorFeed() {
 function tickBehaviors() {
   const house = houses[Math.floor(Math.random() * houses.length)];
   const hint = house.hints[Math.floor(Math.random() * house.hints.length)];
-  pushBehaviorLog(`${house.neighbor}: ${hint}`);
+  const goals = [
+    `${house.neighbor} is working on: ${house.goal}.`,
+    `${house.neighbor} is heading to their ${house.job}.`,
+    `${house.neighbor} mutters: "${house.quirks}"`,
+  ];
+  pushBehaviorLog(goals[Math.floor(Math.random() * goals.length)] || hint);
+}
+
+const focusState = {
+  elements: [],
+};
+
+function syncFocusableElements() {
+  focusState.elements = Array.from(document.querySelectorAll("button, input[type='range'], input[type='text']")).filter(
+    (el) => !el.disabled
+  );
+  if (focusState.elements.length === 0) return;
+  if (state.focusIndex >= focusState.elements.length) {
+    state.focusIndex = 0;
+  }
+  setFocus(state.focusIndex);
+}
+
+function setFocus(index) {
+  focusState.elements.forEach((el) => el.classList.remove("focus-ring"));
+  const target = focusState.elements[index];
+  if (!target) return;
+  target.classList.add("focus-ring");
+  target.focus({ preventScroll: true });
+}
+
+function moveFocus(direction) {
+  if (focusState.elements.length === 0) return;
+  state.focusIndex = (state.focusIndex + direction + focusState.elements.length) % focusState.elements.length;
+  setFocus(state.focusIndex);
+}
+
+function activateFocused() {
+  const target = focusState.elements[state.focusIndex];
+  if (!target) return;
+  if (target.tagName === "INPUT" && target.type === "range") return;
+  target.click();
+}
+
+function adjustFocusedSlider(delta) {
+  const target = focusState.elements[state.focusIndex];
+  if (!target || target.tagName !== "INPUT" || target.type !== "range") return;
+  const step = 2;
+  const value = Math.min(90, Math.max(30, Number(target.value) + delta * step));
+  target.value = value;
+  target.dispatchEvent(new Event("input"));
+}
+
+function handleGamepadInput(gamepad) {
+  const now = performance.now();
+  const leftAxisX = gamepad.axes[0] || 0;
+  const leftAxisY = gamepad.axes[1] || 0;
+  const threshold = 0.5;
+
+  if (now - state.lastAxisMove > 180) {
+    if (leftAxisY > threshold || gamepad.buttons[13]?.pressed) {
+      moveFocus(1);
+      state.lastAxisMove = now;
+    } else if (leftAxisY < -threshold || gamepad.buttons[12]?.pressed) {
+      moveFocus(-1);
+      state.lastAxisMove = now;
+    }
+
+    if (leftAxisX > threshold || gamepad.buttons[15]?.pressed) {
+      adjustFocusedSlider(1);
+      state.lastAxisMove = now;
+    } else if (leftAxisX < -threshold || gamepad.buttons[14]?.pressed) {
+      adjustFocusedSlider(-1);
+      state.lastAxisMove = now;
+    }
+  }
+
+  if (now - state.lastButtonPress > 200) {
+    if (gamepad.buttons[0]?.pressed) {
+      activateFocused();
+      state.lastButtonPress = now;
+    }
+    if (gamepad.buttons[1]?.pressed) {
+      resetGame();
+      state.lastButtonPress = now;
+    }
+  }
+}
+
+function pollGamepads() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const xboxPad = Array.from(gamepads).find((pad) => pad && pad.mapping === "standard");
+  if (xboxPad) {
+    controllerStatus.textContent = "Xbox Controller Connected";
+    if (!state.controllerActive) {
+      state.controllerActive = true;
+      syncFocusableElements();
+    }
+    handleGamepadInput(xboxPad);
+  } else {
+    controllerStatus.textContent = "Searching...";
+    state.controllerActive = false;
+  }
+  requestAnimationFrame(pollGamepads);
 }
 
 startBtn.addEventListener("click", () => {
@@ -536,4 +689,6 @@ renderHouses();
 updateStatus();
 renderInventory();
 renderBehaviorFeed();
+renderProfile(null);
 setInterval(tickBehaviors, 12000);
+requestAnimationFrame(pollGamepads);

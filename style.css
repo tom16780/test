@@ -8,6 +8,7 @@
   --success: #71ffbf;
   --danger: #ff7b86;
   --locked: rgba(255, 255, 255, 0.08);
+  --glow: rgba(255, 179, 71, 0.35);
 }
 
 * {
@@ -30,7 +31,19 @@ body {
   justify-content: space-between;
   align-items: center;
   gap: 2rem;
-  background: linear-gradient(90deg, rgba(255, 179, 71, 0.15), rgba(21, 27, 47, 0));
+  background: linear-gradient(90deg, rgba(255, 179, 71, 0.2), rgba(21, 27, 47, 0));
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.controller-hint {
+  font-size: 0.85rem;
+  color: var(--muted);
 }
 
 .hero h1 {
@@ -75,25 +88,26 @@ body {
 
 .house-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.2rem;
   margin-top: 1.5rem;
 }
 
 .house-card {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
   padding: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.8rem;
-  transition: transform 0.2s ease, border 0.2s ease;
+  transition: transform 0.2s ease, border 0.2s ease, box-shadow 0.2s ease;
 }
 
 .house-card.active {
   border-color: var(--accent);
   transform: translateY(-4px);
+  box-shadow: 0 0 20px rgba(255, 179, 71, 0.15);
 }
 
 .house-card.locked {
@@ -141,12 +155,13 @@ body {
   padding: 0.6rem 1.4rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 
 .primary {
   background: var(--accent);
   color: #241400;
+  box-shadow: 0 8px 20px rgba(255, 179, 71, 0.25);
 }
 
 .secondary {
@@ -161,9 +176,15 @@ body {
   transform: translateY(-2px);
 }
 
+.focus-ring {
+  outline: 2px solid var(--accent);
+  box-shadow: 0 0 0 4px var(--glow);
+}
+
 .status,
 .inventory,
-.ai-panel {
+.ai-panel,
+.profile {
   background: rgba(255, 255, 255, 0.04);
   border-radius: 14px;
   padding: 1rem;
@@ -226,6 +247,16 @@ body {
   color: var(--muted);
 }
 
+.profile-card {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+
+.profile-card strong {
+  color: #f5f6fb;
+}
+
 .actions {
   display: flex;
   gap: 0.75rem;
@@ -251,6 +282,10 @@ footer {
 
   .hero {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hero-actions {
     align-items: flex-start;
   }
 }

@@ -12,7 +12,10 @@
       <h1>Neighborhood Watch: Open Block</h1>
       <p>Explore a sleepy neighborhood, pick up items, and solve puzzles to unlock new districts.</p>
     </div>
-    <button id="start-btn" class="primary">Start Night Watch</button>
+    <div class="hero-actions">
+      <button id="start-btn" class="primary">Start Night Watch</button>
+      <div class="controller-hint">Controller Ready: <span id="controller-status">Searching...</span></div>
+    </div>
   </header>
 
   <main class="layout">
@@ -51,6 +54,13 @@
       <div class="ai-panel">
         <h3>Neighbor Behavior Feed</h3>
         <ul id="behavior-feed" class="behavior-feed"></ul>
+      </div>
+
+      <div class="profile">
+        <h3>Neighbor Profile</h3>
+        <div id="profile-card" class="profile-card">
+          <p class="muted">Select a house to view the neighbor's life, job, and goals.</p>
+        </div>
       </div>
 
       <div class="actions">
