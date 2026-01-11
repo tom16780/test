@@ -141,6 +141,7 @@ const behaviorFeed = document.getElementById("behavior-feed");
 const profileCard = document.getElementById("profile-card");
 const controllerStatus = document.getElementById("controller-status");
 const sceneCanvas = document.getElementById("scene");
+const sceneWrap = document.getElementById("scene-wrap");
 const useItemBtn = document.getElementById("use-item-btn");
 const dropItemBtn = document.getElementById("drop-item-btn");
 const startBtn = document.getElementById("start-btn");
@@ -151,6 +152,7 @@ const mainMenu = document.getElementById("main-menu");
 const loadingScreen = document.getElementById("loading-screen");
 const hudLocation = document.getElementById("hud-location");
 const hudMode = document.getElementById("hud-mode");
+const fullscreenBtn = document.getElementById("fullscreen-btn");
 
 let audioCtx;
 const sceneState = {
@@ -165,6 +167,7 @@ const sceneState = {
   houseMeshes: new Map(),
   doorMeshes: new Map(),
   doorTargets: new Map(),
+  ready: false,
 };
 
 function initScene() {
@@ -221,6 +224,8 @@ function initScene() {
   buildHouseMeshes();
   updateHouseHighlights();
   animateScene();
+  sceneState.ready = true;
+  stopLoading();
 
   window.addEventListener("resize", handleSceneResize);
 }
@@ -952,13 +957,36 @@ if (menuStartBtn) {
   menuStartBtn.addEventListener("click", () => {
     mainMenu?.classList.add("hidden");
     startLoading("Opening the block...");
-    setTimeout(stopLoading, 800);
+    if (sceneState.ready) {
+      setTimeout(stopLoading, 600);
+    }
   });
 }
 
 sceneCanvas?.addEventListener("click", () => {
   if (!sceneState.fpControls) return;
   sceneState.fpControls.lock();
+});
+
+if (fullscreenBtn) {
+  fullscreenBtn.addEventListener("click", async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      document.body.classList.add("fullscreen");
+      fullscreenBtn.textContent = "Exit Fullscreen";
+    } else {
+      await document.exitFullscreen();
+      document.body.classList.remove("fullscreen");
+      fullscreenBtn.textContent = "Enter Fullscreen";
+    }
+  });
+}
+
+document.addEventListener("fullscreenchange", () => {
+  if (!fullscreenBtn) return;
+  const isFullscreen = Boolean(document.fullscreenElement);
+  document.body.classList.toggle("fullscreen", isFullscreen);
+  fullscreenBtn.textContent = isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen";
 });
 
 window.addEventListener("gamepadconnected", (event) => {
@@ -1019,7 +1047,10 @@ updateStatus();
 renderInventory();
 renderBehaviorFeed();
 renderProfile(null);
-hudLocation.textContent = "Street";
+if (hudLocation) hudLocation.textContent = "Street";
 setInterval(tickBehaviors, 12000);
 requestAnimationFrame(pollGamepads);
+if (mainMenu?.classList.contains("hidden")) {
+  startLoading("Loading neighborhood...");
+}
 initScene();

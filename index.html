@@ -45,13 +45,16 @@
           <span class="badge safe">Secured</span>
         </div>
       </div>
-      <div class="scene-wrap">
+      <div id="scene-wrap" class="scene-wrap">
         <canvas id="scene" class="scene"></canvas>
-      </div>
-      <div class="hud">
-        <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
-        <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
-        <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
+        <div class="hud">
+          <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
+          <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
+          <div class="hud-actions">
+            <button id="fullscreen-btn" class="secondary hud-btn">Enter Fullscreen</button>
+          </div>
+          <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
+        </div>
       </div>
     </section>
   </main>
