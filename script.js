@@ -188,11 +188,11 @@ function initScene() {
 
   sceneState.fpControls = new PointerLockControls(sceneState.camera, sceneCanvas);
   sceneState.fpControls.addEventListener("lock", () => {
-    hudMode.textContent = "First-Person";
+    if (hudMode) hudMode.textContent = "First-Person";
     if (sceneState.controls) sceneState.controls.enabled = false;
   });
   sceneState.fpControls.addEventListener("unlock", () => {
-    hudMode.textContent = "Third-Person";
+    if (hudMode) hudMode.textContent = "Third-Person";
     if (sceneState.controls) sceneState.controls.enabled = true;
   });
 
@@ -305,12 +305,13 @@ function closeDoor(houseId) {
 }
 
 function startLoading(message = "Loading neighborhood...") {
+  if (!loadingScreen) return;
   loadingScreen.querySelector("p").textContent = message;
   loadingScreen.classList.remove("hidden");
 }
 
 function stopLoading() {
-  loadingScreen.classList.add("hidden");
+  loadingScreen?.classList.add("hidden");
 }
 
 function ensureAudio() {
@@ -337,6 +338,7 @@ function playTone(frequency, duration = 0.2) {
 }
 
 function updateStatus() {
+  if (!alertLevel || !neighborsSaved || !districtsUnlocked) return;
   const solvedCount = state.solved.size;
   neighborsSaved.textContent = `${solvedCount}`;
   districtsUnlocked.textContent = `${state.unlockedDistricts}`;
@@ -360,6 +362,7 @@ function updateUnlockedDistricts() {
 }
 
 function renderHouses() {
+  if (!houseGrid) return;
   houseGrid.innerHTML = "";
   houses.forEach((house) => {
     const card = document.createElement("div");
@@ -413,6 +416,7 @@ function renderHouses() {
 }
 
 function renderInventory() {
+  if (!inventoryList) return;
   inventoryList.innerHTML = "";
   if (state.inventory.size === 0) {
     const item = document.createElement("li");
@@ -453,7 +457,7 @@ function selectHouse(house) {
   renderProfile(house);
   updateHouseHighlights();
   pushBehaviorLog(`${house.neighbor} is currently focused on: ${house.goal}.`);
-  hudLocation.textContent = house.name;
+  if (hudLocation) hudLocation.textContent = house.name;
   openDoor(house.id);
   startLoading(`Entering ${house.name}...`);
   setTimeout(stopLoading, 600);
@@ -461,6 +465,7 @@ function selectHouse(house) {
 }
 
 function renderProfile(house) {
+  if (!profileCard) return;
   if (!house) {
     profileCard.innerHTML = "<p class=\"muted\">Select a house to view the neighbor's life, job, and goals.</p>";
     return;
@@ -476,6 +481,7 @@ function renderProfile(house) {
 }
 
 function renderPuzzle(house) {
+  if (!puzzleArea) return;
   puzzleArea.innerHTML = "";
 
   const heading = document.createElement("h3");
@@ -718,7 +724,7 @@ function resolveHouse(house, message) {
   const feedback = document.createElement("p");
   feedback.textContent = message;
   feedback.className = "muted";
-  puzzleArea.appendChild(feedback);
+  puzzleArea?.appendChild(feedback);
   updateStatus();
   renderHouses();
   updateHouseHighlights();
@@ -736,13 +742,15 @@ function resetGame() {
   state.selectedItemIndex = 0;
   state.unlockedDistricts = 1;
   state.behaviorLog = [];
-  puzzleArea.innerHTML = "<h3>Puzzle Console</h3><p class=\"muted\">Select a house to enter its interior and investigate clues.</p>";
+  if (puzzleArea) {
+    puzzleArea.innerHTML = "<h3>Puzzle Console</h3><p class=\"muted\">Select a house to enter its interior and investigate clues.</p>";
+  }
   updateStatus();
   renderHouses();
   renderInventory();
   renderBehaviorFeed();
   renderProfile(null);
-  hudLocation.textContent = "Street";
+  if (hudLocation) hudLocation.textContent = "Street";
   updateHouseHighlights();
 }
 
@@ -766,6 +774,7 @@ function dropSelectedItem() {
 }
 
 function renderBehaviorFeed() {
+  if (!behaviorFeed) return;
   behaviorFeed.innerHTML = "";
   if (state.behaviorLog.length === 0) {
     const li = document.createElement("li");
@@ -897,45 +906,71 @@ function pollGamepads() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
   const xboxPad = Array.from(gamepads).find((pad) => pad && pad.mapping === "standard");
   if (xboxPad) {
-    controllerStatus.textContent = "Xbox Controller Connected";
+    if (controllerStatus) controllerStatus.textContent = `Xbox Controller Connected (${xboxPad.id})`;
     if (!state.controllerActive) {
       state.controllerActive = true;
       syncFocusableElements();
     }
     handleGamepadInput(xboxPad);
   } else {
-    controllerStatus.textContent = "Searching...";
+    if (controllerStatus) controllerStatus.textContent = "Searching...";
     state.controllerActive = false;
   }
   requestAnimationFrame(pollGamepads);
 }
 
-startBtn.addEventListener("click", () => {
-  playTone(600, 0.2);
-  alertLevel.textContent = "On Watch";
-  alertLevel.style.color = "var(--accent)";
-});
+if (startBtn) {
+  startBtn.addEventListener("click", () => {
+    playTone(600, 0.2);
+    if (alertLevel) {
+      alertLevel.textContent = "On Watch";
+      alertLevel.style.color = "var(--accent)";
+    }
+  });
+}
 
-resetBtn.addEventListener("click", resetGame);
+if (resetBtn) {
+  resetBtn.addEventListener("click", resetGame);
+}
 
-soundBtn.addEventListener("click", () => {
-  state.soundOn = !state.soundOn;
-  soundBtn.textContent = `Sound: ${state.soundOn ? "On" : "Off"}`;
-  playTone(420, 0.1);
-});
+if (soundBtn) {
+  soundBtn.addEventListener("click", () => {
+    state.soundOn = !state.soundOn;
+    soundBtn.textContent = `Sound: ${state.soundOn ? "On" : "Off"}`;
+    playTone(420, 0.1);
+  });
+}
 
-useItemBtn.addEventListener("click", useSelectedItem);
-dropItemBtn.addEventListener("click", dropSelectedItem);
+if (useItemBtn) {
+  useItemBtn.addEventListener("click", useSelectedItem);
+}
+if (dropItemBtn) {
+  dropItemBtn.addEventListener("click", dropSelectedItem);
+}
 
-menuStartBtn.addEventListener("click", () => {
-  mainMenu.classList.add("hidden");
-  startLoading("Opening the block...");
-  setTimeout(stopLoading, 800);
-});
+if (menuStartBtn) {
+  menuStartBtn.addEventListener("click", () => {
+    mainMenu?.classList.add("hidden");
+    startLoading("Opening the block...");
+    setTimeout(stopLoading, 800);
+  });
+}
 
-sceneCanvas.addEventListener("click", () => {
+sceneCanvas?.addEventListener("click", () => {
   if (!sceneState.fpControls) return;
   sceneState.fpControls.lock();
+});
+
+window.addEventListener("gamepadconnected", (event) => {
+  if (controllerStatus) {
+    controllerStatus.textContent = `Xbox Controller Connected (${event.gamepad.id})`;
+  }
+  state.controllerActive = true;
+});
+
+window.addEventListener("gamepaddisconnected", () => {
+  if (controllerStatus) controllerStatus.textContent = "Searching...";
+  state.controllerActive = false;
 });
 
 document.addEventListener("keydown", (event) => {

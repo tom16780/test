@@ -24,8 +24,8 @@
 
   <header class="hero">
     <div>
-      <h1>Neighborhood Watch: Open Block</h1>
-      <p>Explore a sleepy neighborhood, pick up items, and solve puzzles to unlock new districts.</p>
+      <h1>Neighborhood Watch: Open Block <span class="prototype">Prototype 1.1</span></h1>
+      <p>Explore a sleepy neighborhood in first-person and test the early 3D experience.</p>
     </div>
     <div class="hero-actions">
       <button id="start-btn" class="primary">Start Night Watch</button>
@@ -52,48 +52,6 @@
         <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
         <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
         <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
-      </div>
-      <div id="house-grid" class="house-grid"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Mission Control</h2>
-      <div class="status">
-        <p><strong>Alert Level:</strong> <span id="alert-level">Calm</span></p>
-        <p><strong>Neighbors Pacified:</strong> <span id="neighbors-saved">0</span> / 6</p>
-        <p><strong>Districts Unlocked:</strong> <span id="districts-unlocked">1</span> / 3</p>
-      </div>
-
-      <div id="puzzle-area" class="puzzle-area">
-        <h3>Puzzle Console</h3>
-        <p class="muted">Select a house to enter its interior and investigate clues.</p>
-      </div>
-
-      <div class="inventory">
-        <h3>Inventory</h3>
-        <ul id="inventory-list" class="inventory-list"></ul>
-        <div class="inventory-actions">
-          <button id="use-item-btn" class="secondary">Use Selected Item</button>
-          <button id="drop-item-btn" class="secondary">Drop Item</button>
-        </div>
-        <p class="muted inventory-hint">Select an item to see how it affects the neighborhood.</p>
-      </div>
-
-      <div class="ai-panel">
-        <h3>Neighbor Behavior Feed</h3>
-        <ul id="behavior-feed" class="behavior-feed"></ul>
-      </div>
-
-      <div class="profile">
-        <h3>Neighbor Profile</h3>
-        <div id="profile-card" class="profile-card">
-          <p class="muted">Select a house to view the neighbor's life, job, and goals.</p>
-        </div>
-      </div>
-
-      <div class="actions">
-        <button id="reset-btn" class="secondary">Reset Block</button>
-        <button id="sound-btn" class="secondary">Sound: On</button>
       </div>
     </section>
   </main>
