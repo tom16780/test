@@ -1,3 +1,6 @@
+import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
+import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+
 const houses = [
   {
     id: "house-1",
@@ -134,11 +137,119 @@ const inventoryList = document.getElementById("inventory-list");
 const behaviorFeed = document.getElementById("behavior-feed");
 const profileCard = document.getElementById("profile-card");
 const controllerStatus = document.getElementById("controller-status");
+const sceneCanvas = document.getElementById("scene");
 const startBtn = document.getElementById("start-btn");
 const resetBtn = document.getElementById("reset-btn");
 const soundBtn = document.getElementById("sound-btn");
 
 let audioCtx;
+const sceneState = {
+  scene: null,
+  camera: null,
+  renderer: null,
+  controls: null,
+  houseMeshes: new Map(),
+};
+
+function initScene() {
+  if (!sceneCanvas) return;
+  const width = sceneCanvas.clientWidth;
+  const height = sceneCanvas.clientHeight;
+
+  sceneState.scene = new THREE.Scene();
+  sceneState.scene.background = new THREE.Color("#0b0f1f");
+
+  sceneState.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
+  sceneState.camera.position.set(0, 12, 16);
+
+  sceneState.renderer = new THREE.WebGLRenderer({ canvas: sceneCanvas, antialias: true });
+  sceneState.renderer.setPixelRatio(window.devicePixelRatio || 1);
+  sceneState.renderer.setSize(width, height, false);
+
+  sceneState.controls = new OrbitControls(sceneState.camera, sceneCanvas);
+  sceneState.controls.enableDamping = true;
+  sceneState.controls.target.set(0, 2, 0);
+
+  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+  const directional = new THREE.DirectionalLight(0xfff0d6, 0.8);
+  directional.position.set(8, 12, 6);
+  sceneState.scene.add(ambient, directional);
+
+  const groundGeometry = new THREE.PlaneGeometry(30, 30);
+  const groundMaterial = new THREE.MeshStandardMaterial({
+    color: 0x1a2038,
+    roughness: 0.9,
+    metalness: 0.1,
+  });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  sceneState.scene.add(ground);
+
+  const streetGeometry = new THREE.PlaneGeometry(24, 4);
+  const streetMaterial = new THREE.MeshStandardMaterial({ color: 0x2a324f });
+  const street = new THREE.Mesh(streetGeometry, streetMaterial);
+  street.rotation.x = -Math.PI / 2;
+  street.position.y = 0.01;
+  sceneState.scene.add(street);
+
+  buildHouseMeshes();
+  updateHouseHighlights();
+  animateScene();
+
+  window.addEventListener("resize", handleSceneResize);
+}
+
+function buildHouseMeshes() {
+  sceneState.houseMeshes.clear();
+  const rowSpacing = 6;
+  const columnSpacing = 6;
+  houses.forEach((house, index) => {
+    const geometry = new THREE.BoxGeometry(2.4, 2.4, 2.4);
+    const material = new THREE.MeshStandardMaterial({ color: 0x3d4b70 });
+    const mesh = new THREE.Mesh(geometry, material);
+    const row = Math.floor(index / 3);
+    const column = index % 3;
+    mesh.position.set(-6 + column * columnSpacing, 1.2, -4 + row * rowSpacing);
+    mesh.userData.houseId = house.id;
+    sceneState.scene.add(mesh);
+    sceneState.houseMeshes.set(house.id, mesh);
+
+    const roofGeometry = new THREE.ConeGeometry(1.9, 1.4, 4);
+    const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2f45 });
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.set(mesh.position.x, 2.9, mesh.position.z);
+    roof.rotation.y = Math.PI / 4;
+    sceneState.scene.add(roof);
+  });
+}
+
+function updateHouseHighlights() {
+  sceneState.houseMeshes.forEach((mesh, houseId) => {
+    const house = houses.find((entry) => entry.id === houseId);
+    if (!house) return;
+    const solved = state.solved.has(houseId);
+    const isActive = state.activeHouse?.id === houseId;
+    const baseColor = solved ? 0x4cc99f : 0x3d4b70;
+    const highlightColor = isActive ? 0xffb347 : baseColor;
+    mesh.material.color.setHex(highlightColor);
+  });
+}
+
+function handleSceneResize() {
+  if (!sceneState.renderer || !sceneState.camera) return;
+  const width = sceneCanvas.clientWidth;
+  const height = sceneCanvas.clientHeight;
+  sceneState.camera.aspect = width / height;
+  sceneState.camera.updateProjectionMatrix();
+  sceneState.renderer.setSize(width, height, false);
+}
+
+function animateScene() {
+  if (!sceneState.renderer || !sceneState.scene || !sceneState.camera) return;
+  requestAnimationFrame(animateScene);
+  sceneState.controls?.update();
+  sceneState.renderer.render(sceneState.scene, sceneState.camera);
+}
 
 function ensureAudio() {
   if (!audioCtx) {
@@ -268,6 +379,7 @@ function selectHouse(house) {
   renderHouses();
   renderPuzzle(house);
   renderProfile(house);
+  updateHouseHighlights();
   playTone(440, 0.15);
 }
 
@@ -528,6 +640,7 @@ function resolveHouse(house, message) {
   puzzleArea.appendChild(feedback);
   updateStatus();
   renderHouses();
+  updateHouseHighlights();
   pushBehaviorLog(`${house.neighbor} calms down after the puzzle.`);
 }
 
@@ -545,6 +658,7 @@ function resetGame() {
   renderInventory();
   renderBehaviorFeed();
   renderProfile(null);
+  updateHouseHighlights();
 }
 
 function renderBehaviorFeed() {
@@ -692,3 +806,4 @@ renderBehaviorFeed();
 renderProfile(null);
 setInterval(tickBehaviors, 12000);
 requestAnimationFrame(pollGamepads);
+initScene();
