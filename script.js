@@ -120,6 +120,8 @@ const state = {
   sequenceInput: [],
   patternInput: [],
   inventory: new Set(),
+  inventoryOrder: [],
+  selectedItemIndex: 0,
   unlockedDistricts: 1,
   behaviorLog: [],
   controllerActive: false,
@@ -138,6 +140,8 @@ const behaviorFeed = document.getElementById("behavior-feed");
 const profileCard = document.getElementById("profile-card");
 const controllerStatus = document.getElementById("controller-status");
 const sceneCanvas = document.getElementById("scene");
+const useItemBtn = document.getElementById("use-item-btn");
+const dropItemBtn = document.getElementById("drop-item-btn");
 const startBtn = document.getElementById("start-btn");
 const resetBtn = document.getElementById("reset-btn");
 const soundBtn = document.getElementById("sound-btn");
@@ -358,10 +362,20 @@ function renderInventory() {
     inventoryList.appendChild(item);
     return;
   }
-
-  state.inventory.forEach((itemName) => {
+  state.inventoryOrder = Array.from(state.inventory);
+  if (state.selectedItemIndex >= state.inventoryOrder.length) {
+    state.selectedItemIndex = 0;
+  }
+  state.inventoryOrder.forEach((itemName, index) => {
     const item = document.createElement("li");
     item.textContent = itemName;
+    if (index === state.selectedItemIndex) {
+      item.classList.add("selected");
+    }
+    item.addEventListener("click", () => {
+      state.selectedItemIndex = index;
+      renderInventory();
+    });
     inventoryList.appendChild(item);
   });
 }
@@ -380,6 +394,7 @@ function selectHouse(house) {
   renderPuzzle(house);
   renderProfile(house);
   updateHouseHighlights();
+  pushBehaviorLog(`${house.neighbor} is currently focused on: ${house.goal}.`);
   playTone(440, 0.15);
 }
 
@@ -424,11 +439,15 @@ function renderPuzzle(house) {
     btn.disabled = collected;
     btn.addEventListener("click", () => {
       state.inventory.add(itemName);
+      if (!state.inventoryOrder.includes(itemName)) {
+        state.inventoryOrder.push(itemName);
+      }
       btn.classList.add("collected");
       btn.textContent = `${itemName} ✓`;
       btn.disabled = true;
       renderInventory();
       playTone(520, 0.1);
+      pushBehaviorLog(`Picked up ${itemName}. ${house.neighbor} reacts to the movement.`);
     });
     interior.appendChild(btn);
   });
@@ -641,7 +660,7 @@ function resolveHouse(house, message) {
   updateStatus();
   renderHouses();
   updateHouseHighlights();
-  pushBehaviorLog(`${house.neighbor} calms down after the puzzle.`);
+  pushBehaviorLog(`${house.neighbor} calms down after the puzzle. They head back to their ${house.job}.`);
 }
 
 function resetGame() {
@@ -650,6 +669,8 @@ function resetGame() {
   state.sequenceInput = [];
   state.patternInput = [];
   state.inventory.clear();
+  state.inventoryOrder = [];
+  state.selectedItemIndex = 0;
   state.unlockedDistricts = 1;
   state.behaviorLog = [];
   puzzleArea.innerHTML = "<h3>Puzzle Console</h3><p class=\"muted\">Select a house to enter its interior and investigate clues.</p>";
@@ -659,6 +680,25 @@ function resetGame() {
   renderBehaviorFeed();
   renderProfile(null);
   updateHouseHighlights();
+}
+
+function useSelectedItem() {
+  if (state.inventoryOrder.length === 0) return;
+  const itemName = state.inventoryOrder[state.selectedItemIndex];
+  if (!itemName) return;
+  const context = state.activeHouse ? ` near ${state.activeHouse.name}` : " on the street";
+  pushBehaviorLog(`You used ${itemName}${context}. The neighborhood feels different.`);
+  playTone(640, 0.15);
+}
+
+function dropSelectedItem() {
+  if (state.inventoryOrder.length === 0) return;
+  const itemName = state.inventoryOrder[state.selectedItemIndex];
+  state.inventory.delete(itemName);
+  state.inventoryOrder.splice(state.selectedItemIndex, 1);
+  state.selectedItemIndex = Math.max(0, state.selectedItemIndex - 1);
+  renderInventory();
+  pushBehaviorLog(`Dropped ${itemName}. It might be useful later.`);
 }
 
 function renderBehaviorFeed() {
@@ -736,6 +776,7 @@ function handleGamepadInput(gamepad) {
   const now = performance.now();
   const leftAxisX = gamepad.axes[0] || 0;
   const leftAxisY = gamepad.axes[1] || 0;
+  const rightAxisY = gamepad.axes[3] || 0;
   const threshold = 0.5;
 
   if (now - state.lastAxisMove > 180) {
@@ -744,6 +785,14 @@ function handleGamepadInput(gamepad) {
       state.lastAxisMove = now;
     } else if (leftAxisY < -threshold || gamepad.buttons[12]?.pressed) {
       moveFocus(-1);
+      state.lastAxisMove = now;
+    }
+
+    if (rightAxisY > threshold) {
+      selectNextInventoryItem(1);
+      state.lastAxisMove = now;
+    } else if (rightAxisY < -threshold) {
+      selectNextInventoryItem(-1);
       state.lastAxisMove = now;
     }
 
@@ -763,6 +812,14 @@ function handleGamepadInput(gamepad) {
     }
     if (gamepad.buttons[1]?.pressed) {
       resetGame();
+      state.lastButtonPress = now;
+    }
+    if (gamepad.buttons[2]?.pressed) {
+      useSelectedItem();
+      state.lastButtonPress = now;
+    }
+    if (gamepad.buttons[3]?.pressed) {
+      dropSelectedItem();
       state.lastButtonPress = now;
     }
   }
@@ -798,6 +855,16 @@ soundBtn.addEventListener("click", () => {
   soundBtn.textContent = `Sound: ${state.soundOn ? "On" : "Off"}`;
   playTone(420, 0.1);
 });
+
+useItemBtn.addEventListener("click", useSelectedItem);
+dropItemBtn.addEventListener("click", dropSelectedItem);
+
+function selectNextInventoryItem(direction) {
+  if (state.inventoryOrder.length === 0) return;
+  state.selectedItemIndex =
+    (state.selectedItemIndex + direction + state.inventoryOrder.length) % state.inventoryOrder.length;
+  renderInventory();
+}
 
 renderHouses();
 updateStatus();

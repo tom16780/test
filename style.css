@@ -264,6 +264,29 @@ body {
   color: var(--muted);
 }
 
+.inventory-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.inventory-list li {
+  padding: 0.35rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+.inventory-list li.selected {
+  border-color: var(--accent);
+  background: rgba(255, 179, 71, 0.12);
+  color: #f5f6fb;
+}
+
+.inventory-hint {
+  margin: 0.6rem 0 0;
+}
+
 .profile-card {
   display: grid;
   gap: 0.4rem;
