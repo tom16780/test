@@ -7,6 +7,21 @@
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
+  <div id="main-menu" class="overlay menu">
+    <div class="menu-card">
+      <h1>Neighborhood Watch</h1>
+      <p>Step into the block, investigate homes, and keep the neighbors calm.</p>
+      <button id="menu-start-btn" class="primary">Start Patrol</button>
+    </div>
+  </div>
+
+  <div id="loading-screen" class="overlay loading hidden">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p>Loading neighborhood...</p>
+    </div>
+  </div>
+
   <header class="hero">
     <div>
       <h1>Neighborhood Watch: Open Block</h1>
@@ -32,6 +47,11 @@
       </div>
       <div class="scene-wrap">
         <canvas id="scene" class="scene"></canvas>
+      </div>
+      <div class="hud">
+        <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
+        <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
+        <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
       </div>
       <div id="house-grid" class="house-grid"></div>
     </section>

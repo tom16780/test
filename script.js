@@ -1,5 +1,6 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
+import { PointerLockControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js";
 
 const houses = [
   {
@@ -145,6 +146,11 @@ const dropItemBtn = document.getElementById("drop-item-btn");
 const startBtn = document.getElementById("start-btn");
 const resetBtn = document.getElementById("reset-btn");
 const soundBtn = document.getElementById("sound-btn");
+const menuStartBtn = document.getElementById("menu-start-btn");
+const mainMenu = document.getElementById("main-menu");
+const loadingScreen = document.getElementById("loading-screen");
+const hudLocation = document.getElementById("hud-location");
+const hudMode = document.getElementById("hud-mode");
 
 let audioCtx;
 const sceneState = {
@@ -152,7 +158,13 @@ const sceneState = {
   camera: null,
   renderer: null,
   controls: null,
+  fpControls: null,
+  fpVelocity: new THREE.Vector3(),
+  fpDirection: new THREE.Vector3(),
+  fpMove: { forward: false, backward: false, left: false, right: false },
   houseMeshes: new Map(),
+  doorMeshes: new Map(),
+  doorTargets: new Map(),
 };
 
 function initScene() {
@@ -173,6 +185,16 @@ function initScene() {
   sceneState.controls = new OrbitControls(sceneState.camera, sceneCanvas);
   sceneState.controls.enableDamping = true;
   sceneState.controls.target.set(0, 2, 0);
+
+  sceneState.fpControls = new PointerLockControls(sceneState.camera, sceneCanvas);
+  sceneState.fpControls.addEventListener("lock", () => {
+    hudMode.textContent = "First-Person";
+    if (sceneState.controls) sceneState.controls.enabled = false;
+  });
+  sceneState.fpControls.addEventListener("unlock", () => {
+    hudMode.textContent = "Third-Person";
+    if (sceneState.controls) sceneState.controls.enabled = true;
+  });
 
   const ambient = new THREE.AmbientLight(0xffffff, 0.6);
   const directional = new THREE.DirectionalLight(0xfff0d6, 0.8);
@@ -205,6 +227,7 @@ function initScene() {
 
 function buildHouseMeshes() {
   sceneState.houseMeshes.clear();
+  sceneState.doorMeshes.clear();
   const rowSpacing = 6;
   const columnSpacing = 6;
   houses.forEach((house, index) => {
@@ -217,6 +240,15 @@ function buildHouseMeshes() {
     mesh.userData.houseId = house.id;
     sceneState.scene.add(mesh);
     sceneState.houseMeshes.set(house.id, mesh);
+
+    const doorGeometry = new THREE.BoxGeometry(0.5, 1.4, 0.1);
+    const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x6b4b3e });
+    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    door.position.set(mesh.position.x + 1.2, 0.7, mesh.position.z + 1.25);
+    door.userData.houseId = house.id;
+    sceneState.scene.add(door);
+    sceneState.doorMeshes.set(house.id, door);
+    sceneState.doorTargets.set(house.id, 0);
 
     const roofGeometry = new THREE.ConeGeometry(1.9, 1.4, 4);
     const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2f45 });
@@ -252,7 +284,33 @@ function animateScene() {
   if (!sceneState.renderer || !sceneState.scene || !sceneState.camera) return;
   requestAnimationFrame(animateScene);
   sceneState.controls?.update();
+  updateDoors();
+  updateFirstPerson();
   sceneState.renderer.render(sceneState.scene, sceneState.camera);
+}
+
+function updateDoors() {
+  sceneState.doorMeshes.forEach((door, houseId) => {
+    const target = sceneState.doorTargets.get(houseId) || 0;
+    door.rotation.y += (target - door.rotation.y) * 0.1;
+  });
+}
+
+function openDoor(houseId) {
+  sceneState.doorTargets.set(houseId, -Math.PI / 2);
+}
+
+function closeDoor(houseId) {
+  sceneState.doorTargets.set(houseId, 0);
+}
+
+function startLoading(message = "Loading neighborhood...") {
+  loadingScreen.querySelector("p").textContent = message;
+  loadingScreen.classList.remove("hidden");
+}
+
+function stopLoading() {
+  loadingScreen.classList.add("hidden");
 }
 
 function ensureAudio() {
@@ -395,6 +453,10 @@ function selectHouse(house) {
   renderProfile(house);
   updateHouseHighlights();
   pushBehaviorLog(`${house.neighbor} is currently focused on: ${house.goal}.`);
+  hudLocation.textContent = house.name;
+  openDoor(house.id);
+  startLoading(`Entering ${house.name}...`);
+  setTimeout(stopLoading, 600);
   playTone(440, 0.15);
 }
 
@@ -661,6 +723,7 @@ function resolveHouse(house, message) {
   renderHouses();
   updateHouseHighlights();
   pushBehaviorLog(`${house.neighbor} calms down after the puzzle. They head back to their ${house.job}.`);
+  closeDoor(house.id);
 }
 
 function resetGame() {
@@ -679,6 +742,7 @@ function resetGame() {
   renderInventory();
   renderBehaviorFeed();
   renderProfile(null);
+  hudLocation.textContent = "Street";
   updateHouseHighlights();
 }
 
@@ -822,6 +886,10 @@ function handleGamepadInput(gamepad) {
       dropSelectedItem();
       state.lastButtonPress = now;
     }
+    if (gamepad.buttons[9]?.pressed && sceneState.fpControls) {
+      sceneState.fpControls.lock();
+      state.lastButtonPress = now;
+    }
   }
 }
 
@@ -859,6 +927,51 @@ soundBtn.addEventListener("click", () => {
 useItemBtn.addEventListener("click", useSelectedItem);
 dropItemBtn.addEventListener("click", dropSelectedItem);
 
+menuStartBtn.addEventListener("click", () => {
+  mainMenu.classList.add("hidden");
+  startLoading("Opening the block...");
+  setTimeout(stopLoading, 800);
+});
+
+sceneCanvas.addEventListener("click", () => {
+  if (!sceneState.fpControls) return;
+  sceneState.fpControls.lock();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!sceneState.fpControls?.isLocked) return;
+  if (event.code === "KeyW") sceneState.fpMove.forward = true;
+  if (event.code === "KeyS") sceneState.fpMove.backward = true;
+  if (event.code === "KeyA") sceneState.fpMove.left = true;
+  if (event.code === "KeyD") sceneState.fpMove.right = true;
+});
+
+document.addEventListener("keyup", (event) => {
+  if (event.code === "KeyW") sceneState.fpMove.forward = false;
+  if (event.code === "KeyS") sceneState.fpMove.backward = false;
+  if (event.code === "KeyA") sceneState.fpMove.left = false;
+  if (event.code === "KeyD") sceneState.fpMove.right = false;
+});
+
+function updateFirstPerson() {
+  if (!sceneState.fpControls?.isLocked) return;
+  const delta = 0.016;
+  sceneState.fpVelocity.x -= sceneState.fpVelocity.x * 8.0 * delta;
+  sceneState.fpVelocity.z -= sceneState.fpVelocity.z * 8.0 * delta;
+  sceneState.fpDirection.z = Number(sceneState.fpMove.forward) - Number(sceneState.fpMove.backward);
+  sceneState.fpDirection.x = Number(sceneState.fpMove.right) - Number(sceneState.fpMove.left);
+  sceneState.fpDirection.normalize();
+  const speed = 8.0;
+  if (sceneState.fpMove.forward || sceneState.fpMove.backward) {
+    sceneState.fpVelocity.z -= sceneState.fpDirection.z * speed * delta;
+  }
+  if (sceneState.fpMove.left || sceneState.fpMove.right) {
+    sceneState.fpVelocity.x -= sceneState.fpDirection.x * speed * delta;
+  }
+  sceneState.fpControls.moveRight(-sceneState.fpVelocity.x * delta);
+  sceneState.fpControls.moveForward(-sceneState.fpVelocity.z * delta);
+}
+
 function selectNextInventoryItem(direction) {
   if (state.inventoryOrder.length === 0) return;
   state.selectedItemIndex =
@@ -871,6 +984,7 @@ updateStatus();
 renderInventory();
 renderBehaviorFeed();
 renderProfile(null);
+hudLocation.textContent = "Street";
 setInterval(tickBehaviors, 12000);
 requestAnimationFrame(pollGamepads);
 initScene();
