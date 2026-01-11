@@ -1,0 +1,256 @@
+:root {
+  color-scheme: dark;
+  --bg: #0b0f1f;
+  --card: #151b2f;
+  --accent: #ffb347;
+  --accent-strong: #ff7b00;
+  --muted: #8a93b2;
+  --success: #71ffbf;
+  --danger: #ff7b86;
+  --locked: rgba(255, 255, 255, 0.08);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: radial-gradient(circle at top, #1e2540, var(--bg));
+  color: #f5f6fb;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.hero {
+  padding: 2.5rem 3rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2rem;
+  background: linear-gradient(90deg, rgba(255, 179, 71, 0.15), rgba(21, 27, 47, 0));
+}
+
+.hero h1 {
+  margin: 0 0 0.5rem;
+  font-size: 2.4rem;
+}
+
+.hero p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 36rem;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  padding: 2rem 3rem 3rem;
+  flex: 1;
+}
+
+.map,
+.panel {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.legend {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.house-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.2rem;
+  margin-top: 1.5rem;
+}
+
+.house-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  transition: transform 0.2s ease, border 0.2s ease;
+}
+
+.house-card.active {
+  border-color: var(--accent);
+  transform: translateY(-4px);
+}
+
+.house-card.locked {
+  opacity: 0.6;
+  border-style: dashed;
+  pointer-events: none;
+}
+
+.house-card h3 {
+  margin: 0;
+}
+
+.house-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(255, 179, 71, 0.2);
+  color: var(--accent);
+}
+
+.badge.safe {
+  background: rgba(113, 255, 191, 0.18);
+  color: var(--success);
+}
+
+.badge.locked {
+  background: var(--locked);
+  color: var(--muted);
+}
+
+.primary,
+.secondary,
+.puzzle-button,
+.item-button {
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1.4rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.primary {
+  background: var(--accent);
+  color: #241400;
+}
+
+.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f5f6fb;
+}
+
+.primary:hover,
+.secondary:hover,
+.puzzle-button:hover,
+.item-button:hover {
+  transform: translateY(-2px);
+}
+
+.status,
+.inventory,
+.ai-panel {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.status p {
+  margin: 0 0 0.6rem;
+}
+
+.puzzle-area {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 1.2rem;
+  border-radius: 14px;
+  min-height: 240px;
+  margin-bottom: 1.2rem;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.puzzle-controls,
+.interior-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.puzzle-button,
+.item-button {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f5f6fb;
+}
+
+.puzzle-button.correct {
+  background: rgba(113, 255, 191, 0.2);
+  color: var(--success);
+}
+
+.puzzle-button.wrong {
+  background: rgba(255, 123, 134, 0.18);
+  color: var(--danger);
+}
+
+.item-button.collected {
+  background: rgba(113, 255, 191, 0.2);
+  color: var(--success);
+  cursor: default;
+}
+
+.inventory-list,
+.behavior-feed {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  flex-wrap: wrap;
+}
+
+footer {
+  text-align: center;
+  padding: 1rem;
+  color: var(--muted);
+}
+
+.tuner {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+@media (max-width: 900px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
