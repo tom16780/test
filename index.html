@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neighborhood Watch - Open Block</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="main-menu" class="overlay menu">
+    <div class="menu-card">
+      <h1>Neighborhood Watch</h1>
+      <p>Step into the block, investigate homes, and keep the neighbors calm.</p>
+      <button id="menu-start-btn" class="primary">Start Patrol</button>
+    </div>
+  </div>
+
+  <div id="loading-screen" class="overlay loading hidden">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p>Loading neighborhood...</p>
+    </div>
+  </div>
+
+  <header class="hero">
+    <div>
+      <h1>Neighborhood Watch: Open Block <span class="prototype">Prototype 1.1</span></h1>
+      <p>Explore a sleepy neighborhood in first-person and test the early 3D experience.</p>
+    </div>
+    <div class="hero-actions">
+      <button id="start-btn" class="primary">Start Night Watch</button>
+      <div class="controller-hint">Controller Ready: <span id="controller-status">Searching...</span></div>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="map">
+      <div class="map-header">
+        <div>
+          <h2>Neighborhood Map</h2>
+          <p class="muted">Solve puzzles to unlock streets and calm the neighbors.</p>
+        </div>
+        <div class="legend">
+          <span class="badge">Locked</span>
+          <span class="badge safe">Secured</span>
+        </div>
+      </div>
+      <div id="scene-wrap" class="scene-wrap">
+        <canvas id="scene" class="scene"></canvas>
+        <div class="hud">
+          <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
+          <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
+          <div class="hud-actions">
+            <button id="fullscreen-btn" class="secondary hud-btn">Enter Fullscreen</button>
+          </div>
+          <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Tip: Items in interiors help solve puzzles and unlock new districts.</p>
+  </footer>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
