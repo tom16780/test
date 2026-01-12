@@ -41,6 +41,8 @@ const storyList = document.getElementById("story-list");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const toggleHudBtn = document.getElementById("toggle-hud-btn");
 const hud = document.getElementById("hud");
+const storyPanel = document.getElementById("story-panel");
+const eventPanel = document.getElementById("event-panel");
 
 const state = {
   sceneReady: false,
@@ -50,11 +52,17 @@ const state = {
   eventTimer: 0,
   mode: "On Foot",
   controllerActive: false,
-  controllerName: "",
   playerInVehicle: null,
   playerInPlane: false,
   hudVisible: true,
   actionPressed: false,
+  hudPressed: false,
+  cameraPressed: false,
+  storyPressed: false,
+  storyVisible: true,
+  cameraIndex: 0,
+  windDirection: new THREE.Vector2(1, 0.2),
+  analogThrottle: 0,
   input: {
     forward: false,
     backward: false,
@@ -87,6 +95,11 @@ const world = {
   plane: null,
   target: new THREE.Vector3(),
   cameraOffset: new THREE.Vector3(0, 12, 18),
+  cameraOffsets: [
+    new THREE.Vector3(0, 12, 18),
+    new THREE.Vector3(0, 8, 11),
+    new THREE.Vector3(0, 18, 26),
+  ],
 };
 const clock = new THREE.Clock();
 
@@ -225,6 +238,7 @@ function buildNPCs() {
       wanderAngle: Math.random() * Math.PI * 2,
       wanderTimer: 0,
       speed: 2 + Math.random(),
+      baseColor: material.color.clone(),
     };
     npc.castShadow = true;
     world.scene.add(npc);
@@ -243,6 +257,10 @@ function buildCars() {
       velocity: new THREE.Vector3(),
       ai: i !== 0,
       lane: i,
+      heading: Math.PI * 0.5,
+      speed: 0,
+      maxSpeed: 18 - i * 2,
+      direction: i % 2 === 0 ? 1 : -1,
     };
     car.castShadow = true;
     world.scene.add(car);
@@ -258,6 +276,9 @@ function buildPlane() {
   plane.castShadow = true;
   plane.userData = {
     velocity: new THREE.Vector3(),
+    heading: Math.PI * 0.2,
+    speed: 0,
+    maxSpeed: 26,
   };
   world.scene.add(plane);
   world.plane = plane;
@@ -330,6 +351,7 @@ function updateWeather(delta) {
     state.weatherTimer = 0;
     state.weatherIndex = (state.weatherIndex + 1) % weatherStates.length;
     pushEvent(`Weather update: ${weatherStates[state.weatherIndex].label}.`);
+    state.windDirection = new THREE.Vector2(Math.random() * 2 - 1, Math.random() * 0.4 - 0.2).normalize();
   }
 
   const currentWeather = weatherStates[state.weatherIndex];
@@ -352,10 +374,12 @@ function updateRain(delta) {
 
 function updateClouds(delta) {
   world.clouds.forEach((cloud, index) => {
-    cloud.position.x += delta * (1 + index * 0.2);
-    if (cloud.position.x > 120) {
-      cloud.position.x = -120;
-    }
+    cloud.position.x += delta * (1 + index * 0.2) * state.windDirection.x * 6;
+    cloud.position.z += delta * (1 + index * 0.2) * state.windDirection.y * 6;
+    if (cloud.position.x > 120) cloud.position.x = -120;
+    if (cloud.position.x < -120) cloud.position.x = 120;
+    if (cloud.position.z > 120) cloud.position.z = -120;
+    if (cloud.position.z < -120) cloud.position.z = 120;
   });
 }
 
@@ -368,15 +392,20 @@ function updateNPCs(delta) {
     }
     npc.position.x += Math.cos(npc.userData.wanderAngle) * npc.userData.speed * delta;
     npc.position.z += Math.sin(npc.userData.wanderAngle) * npc.userData.speed * delta;
+    const distance = npc.position.distanceTo(world.target);
+    npc.material.color.copy(distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor);
   });
 }
 
 function updateTraffic(delta) {
   world.cars.forEach((car) => {
     if (!car.userData.ai) return;
-    car.position.x += delta * 4;
-    if (car.position.x > 110) {
-      car.position.x = -110;
+    const targetSpeed = car.userData.maxSpeed * (state.weatherIndex === 2 ? 0.6 : 1);
+    car.userData.speed = THREE.MathUtils.lerp(car.userData.speed, targetSpeed, 0.02);
+    car.position.x += car.userData.direction * car.userData.speed * delta * 0.5;
+    car.rotation.y = car.userData.direction > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+    if (car.position.x > 110 || car.position.x < -110) {
+      car.userData.direction *= -1;
     }
   });
 }
@@ -406,23 +435,43 @@ function updatePlayer(delta) {
 }
 
 function updateVehicleMovement(vehicle, delta, speed) {
-  const inputX = state.input.right - state.input.left + state.analog.x;
-  const inputZ = state.input.backward - state.input.forward + state.analog.y;
-  const movement = new THREE.Vector3(inputX, 0, inputZ);
-  if (movement.lengthSq() > 0) {
-    movement.normalize();
-  }
-  vehicle.userData.velocity.lerp(movement.multiplyScalar(speed), 0.1);
-  vehicle.position.add(vehicle.userData.velocity.clone().multiplyScalar(delta * 6));
+  const steer = state.input.right - state.input.left + state.analog.x;
+  const throttle =
+    (state.input.forward ? 1 : 0) -
+    (state.input.backward ? 1 : 0) -
+    state.analog.y +
+    state.analogThrottle;
+  const accel = throttle * speed;
+  vehicle.userData.speed = THREE.MathUtils.clamp(
+    vehicle.userData.speed + accel * delta * 6,
+    -vehicle.userData.maxSpeed * 0.4,
+    vehicle.userData.maxSpeed,
+  );
+  const turnRate = 2.2 * (Math.abs(vehicle.userData.speed) / vehicle.userData.maxSpeed + 0.2);
+  vehicle.userData.heading += steer * delta * turnRate;
+  vehicle.rotation.y = vehicle.userData.heading;
+  vehicle.position.x += Math.sin(vehicle.userData.heading) * vehicle.userData.speed * delta;
+  vehicle.position.z += Math.cos(vehicle.userData.heading) * vehicle.userData.speed * delta;
   world.target.copy(vehicle.position);
 }
 
 function updatePlaneMovement(plane, delta) {
-  const inputX = state.input.right - state.input.left + state.analog.x;
-  const inputZ = state.input.backward - state.input.forward + state.analog.y;
-  plane.position.x += inputX * delta * 20;
-  plane.position.z += inputZ * delta * 20;
-  plane.position.y = 8 + Math.sin(Date.now() * 0.001) * 2;
+  const steer = state.input.right - state.input.left + state.analog.x;
+  const throttle =
+    (state.input.forward ? 1 : 0) -
+    (state.input.backward ? 1 : 0) -
+    state.analog.y +
+    state.analogThrottle;
+  plane.userData.speed = THREE.MathUtils.clamp(
+    plane.userData.speed + throttle * delta * 8,
+    0,
+    plane.userData.maxSpeed,
+  );
+  plane.userData.heading += steer * delta * 1.4;
+  plane.rotation.y = plane.userData.heading;
+  plane.position.x += Math.sin(plane.userData.heading) * plane.userData.speed * delta;
+  plane.position.z += Math.cos(plane.userData.heading) * plane.userData.speed * delta;
+  plane.position.y = 8 + Math.sin(Date.now() * 0.001) * 2 + plane.userData.speed * 0.05;
   world.target.copy(plane.position);
 }
 
@@ -448,23 +497,29 @@ function updateEvents(delta) {
   if (state.eventTimer > 12) {
     state.eventTimer = 0;
     const event = randomEvents[Math.floor(Math.random() * randomEvents.length)];
-    pushEvent(event);
+    const zone = getZoneLabel(world.target);
+    pushEvent(`${event} (${zone}).`);
   }
 }
 
-function updateZone() {
-  const position = world.target;
+function getZoneLabel(position) {
   if (position.x < -30 && position.z < -30) {
-    hudLocation.textContent = "Airstrip";
-  } else if (position.x > 40 && position.z > 20) {
-    hudLocation.textContent = "Harbor Loop";
-  } else if (position.z < -40) {
-    hudLocation.textContent = "Old Town";
-  } else if (position.x > 40) {
-    hudLocation.textContent = "Stadium District";
-  } else {
-    hudLocation.textContent = "Downtown";
+    return "Airstrip";
   }
+  if (position.x > 40 && position.z > 20) {
+    return "Harbor Loop";
+  }
+  if (position.z < -40) {
+    return "Old Town";
+  }
+  if (position.x > 40) {
+    return "Stadium District";
+  }
+  return "Downtown";
+}
+
+function updateZone() {
+  hudLocation.textContent = getZoneLabel(world.target);
 }
 
 function animate() {
@@ -509,6 +564,12 @@ function handleKeyDown(event) {
       break;
     case "h":
       toggleHud();
+      break;
+    case "t":
+      toggleStoryPanel();
+      break;
+    case "c":
+      switchCamera();
       break;
     default:
       break;
@@ -571,26 +632,58 @@ function toggleHud() {
   hud.classList.toggle("hidden", !state.hudVisible);
 }
 
+function toggleStoryPanel() {
+  state.storyVisible = !state.storyVisible;
+  storyPanel.classList.toggle("hidden", !state.storyVisible);
+  eventPanel.classList.toggle("hidden", !state.storyVisible);
+}
+
+function switchCamera() {
+  state.cameraIndex = (state.cameraIndex + 1) % world.cameraOffsets.length;
+  world.cameraOffset.copy(world.cameraOffsets[state.cameraIndex]);
+}
+
 function updateController() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
   const gamepad = Array.from(gamepads).find((pad) => pad);
   if (gamepad) {
     state.controllerActive = true;
-    state.controllerName = gamepad.id;
     controllerStatus.textContent = gamepad.id.includes("Xbox") ? "Xbox Controller Connected" : "Controller Connected";
     state.analog.x = Math.abs(gamepad.axes[0] || 0) > 0.15 ? gamepad.axes[0] : 0;
     state.analog.y = Math.abs(gamepad.axes[1] || 0) > 0.15 ? gamepad.axes[1] : 0;
+    const triggerForward = gamepad.buttons[7]?.value || 0;
+    const triggerBackward = gamepad.buttons[6]?.value || 0;
+    state.analogThrottle = triggerForward - triggerBackward;
     const actionPressed = gamepad.buttons[0]?.pressed;
+    const hudPressed = gamepad.buttons[1]?.pressed;
+    const storyPressed = gamepad.buttons[2]?.pressed;
+    const cameraPressed = gamepad.buttons[3]?.pressed;
     if (actionPressed && !state.actionPressed) {
       toggleVehicle();
     }
+    if (hudPressed && !state.hudPressed) {
+      toggleHud();
+    }
+    if (storyPressed && !state.storyPressed) {
+      toggleStoryPanel();
+    }
+    if (cameraPressed && !state.cameraPressed) {
+      switchCamera();
+    }
     state.actionPressed = Boolean(actionPressed);
+    state.hudPressed = Boolean(hudPressed);
+    state.storyPressed = Boolean(storyPressed);
+    state.cameraPressed = Boolean(cameraPressed);
   } else {
     state.controllerActive = false;
     controllerStatus.textContent = "Searching...";
     state.analog.x = 0;
     state.analog.y = 0;
     state.actionPressed = false;
+    state.hudPressed = false;
+    state.storyPressed = false;
+    state.cameraPressed = false;
+    state.analogThrottle = 0;
   }
   requestAnimationFrame(updateController);
 }

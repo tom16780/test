@@ -209,6 +209,13 @@ body {
   padding: 0.85rem 1rem;
   z-index: 3;
   font-size: 0.85rem;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.panel.hidden {
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
 }
 
 .story-panel {
