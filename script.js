@@ -31,6 +31,14 @@ const loadingScreen = document.getElementById("loading-screen");
 const startBtn = document.getElementById("start-btn");
 const menuStartBtn = document.getElementById("menu-start-btn");
 const menuStoryBtn = document.getElementById("menu-story-btn");
+const menuSettingsBtn = document.getElementById("menu-settings-btn");
+const menuSettings = document.getElementById("menu-settings");
+const settingWeather = document.getElementById("setting-weather");
+const settingNpcs = document.getElementById("setting-npcs");
+const settingTraffic = document.getElementById("setting-traffic");
+const settingClouds = document.getElementById("setting-clouds");
+const settingHud = document.getElementById("setting-hud");
+const settingsApplyBtn = document.getElementById("settings-apply-btn");
 const controllerStatus = document.getElementById("controller-status");
 const hudLocation = document.getElementById("hud-location");
 const hudMode = document.getElementById("hud-mode");
@@ -54,6 +62,7 @@ const state = {
   controllerActive: false,
   playerInVehicle: null,
   playerInPlane: false,
+  currentInterior: null,
   hudVisible: true,
   actionPressed: false,
   hudPressed: false,
@@ -63,6 +72,11 @@ const state = {
   cameraIndex: 0,
   windDirection: new THREE.Vector2(1, 0.2),
   analogThrottle: 0,
+  weatherRate: 1,
+  npcCount: 10,
+  trafficCount: 4,
+  cloudSpeed: 1,
+  highContrastHud: false,
   input: {
     forward: false,
     backward: false,
@@ -93,6 +107,7 @@ const world = {
   npcs: [],
   cars: [],
   plane: null,
+  interiors: [],
   target: new THREE.Vector3(),
   cameraOffset: new THREE.Vector3(0, 12, 18),
   cameraOffsets: [
@@ -132,6 +147,23 @@ function hideLoading() {
   loadingScreen.classList.add("hidden");
 }
 
+function toggleMenuSettings() {
+  menuSettings.classList.toggle("hidden");
+}
+
+function applySettings() {
+  state.weatherRate = Number(settingWeather.value);
+  state.npcCount = Number(settingNpcs.value);
+  state.trafficCount = Number(settingTraffic.value);
+  state.cloudSpeed = Number(settingClouds.value);
+  state.highContrastHud = settingHud.checked;
+  hud.classList.toggle("high-contrast", state.highContrastHud);
+  if (state.sceneReady) {
+    buildNPCs();
+    buildCars();
+  }
+}
+
 function initScene() {
   if (!sceneCanvas) return;
   if (state.sceneReady) return;
@@ -167,6 +199,7 @@ function initScene() {
 
   buildRoads();
   buildBuildings();
+  buildEnterableBuildings();
   buildPlayer();
   buildNPCs();
   buildCars();
@@ -218,6 +251,83 @@ function buildBuildings() {
   }
 }
 
+function clearInteriors() {
+  world.interiors.forEach((interior) => {
+    world.scene.remove(interior.exterior);
+    world.scene.remove(interior.door);
+    world.scene.remove(interior.interiorGroup);
+  });
+  world.interiors.length = 0;
+}
+
+function buildEnterableBuildings() {
+  clearInteriors();
+  const shopMaterial = new THREE.MeshStandardMaterial({ color: 0x3b4f6d, roughness: 0.6 });
+  const interiorFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x1b243a, roughness: 0.9 });
+  const interiorWallMaterial = new THREE.MeshStandardMaterial({ color: 0x2b354d, roughness: 0.8 });
+
+  const buildings = [
+    { name: "Corner Shop", position: new THREE.Vector3(40, 0, -40) },
+    { name: "Skyline Cafe", position: new THREE.Vector3(-50, 0, 40) },
+    { name: "Metro Outfitters", position: new THREE.Vector3(-60, 0, -10) },
+  ];
+
+  buildings.forEach((building) => {
+    const exterior = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), shopMaterial.clone());
+    exterior.position.set(building.position.x, 3, building.position.z);
+    exterior.castShadow = true;
+    exterior.receiveShadow = true;
+    world.scene.add(exterior);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 0.3), new THREE.MeshStandardMaterial({ color: 0x4fd2ff }));
+    door.position.set(building.position.x, 1.25, building.position.z + 5.1);
+    door.userData = { type: "door", building };
+    world.scene.add(door);
+
+    const interiorGroup = new THREE.Group();
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), interiorFloorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    interiorGroup.add(floor);
+
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 0.4), interiorWallMaterial);
+    backWall.position.set(0, 2, -5);
+    interiorGroup.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 10), interiorWallMaterial);
+    leftWall.position.set(-5, 2, 0);
+    interiorGroup.add(leftWall);
+
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 10), interiorWallMaterial);
+    rightWall.position.set(5, 2, 0);
+    interiorGroup.add(rightWall);
+
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x5b6b85 }));
+    counter.position.set(0, 0.5, -2);
+    interiorGroup.add(counter);
+
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 0.6), new THREE.MeshStandardMaterial({ color: 0x7a8ab0 }));
+    shelf.position.set(-3, 1.5, 2);
+    interiorGroup.add(shelf);
+
+    const light = new THREE.PointLight(0x8bd8ff, 0.9, 25);
+    light.position.set(0, 3.5, 0);
+    interiorGroup.add(light);
+
+    interiorGroup.position.set(building.position.x, 0.05, building.position.z);
+    interiorGroup.visible = false;
+    world.scene.add(interiorGroup);
+
+    world.interiors.push({
+      name: building.name,
+      exterior,
+      door,
+      interiorGroup,
+      entryPoint: new THREE.Vector3(building.position.x, 1.2, building.position.z + 1.5),
+      exitPoint: new THREE.Vector3(building.position.x, 1.2, building.position.z + 6),
+    });
+  });
+}
+
 function buildPlayer() {
   const geometry = new THREE.CapsuleGeometry(1, 2, 4, 8);
   const material = new THREE.MeshStandardMaterial({ color: 0x4fd2ff });
@@ -228,9 +338,17 @@ function buildPlayer() {
   world.player = player;
 }
 
+function clearMeshes(meshes) {
+  meshes.forEach((mesh) => {
+    world.scene.remove(mesh);
+  });
+  meshes.length = 0;
+}
+
 function buildNPCs() {
+  clearMeshes(world.npcs);
   const geometry = new THREE.CapsuleGeometry(0.7, 1.5, 4, 8);
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < state.npcCount; i += 1) {
     const material = new THREE.MeshStandardMaterial({ color: 0xffb347 });
     const npc = new THREE.Mesh(geometry, material);
     npc.position.set((Math.random() - 0.5) * 120, 1.6, (Math.random() - 0.5) * 120);
@@ -239,6 +357,7 @@ function buildNPCs() {
       wanderTimer: 0,
       speed: 2 + Math.random(),
       baseColor: material.color.clone(),
+      avoidStrength: 4 + Math.random() * 2,
     };
     npc.castShadow = true;
     world.scene.add(npc);
@@ -247,8 +366,9 @@ function buildNPCs() {
 }
 
 function buildCars() {
+  clearMeshes(world.cars);
   const carMaterial = new THREE.MeshStandardMaterial({ color: 0xff4d6d, metalness: 0.3, roughness: 0.4 });
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < state.trafficCount; i += 1) {
     const geometry = new THREE.BoxGeometry(3.5, 1.4, 6.5);
     const car = new THREE.Mesh(geometry, carMaterial.clone());
     car.material.color.setHSL(0.95 - i * 0.1, 0.6, 0.5);
@@ -346,7 +466,7 @@ function updateDayNight(delta) {
 }
 
 function updateWeather(delta) {
-  state.weatherTimer += delta;
+  state.weatherTimer += delta * state.weatherRate;
   if (state.weatherTimer > 45) {
     state.weatherTimer = 0;
     state.weatherIndex = (state.weatherIndex + 1) % weatherStates.length;
@@ -374,8 +494,9 @@ function updateRain(delta) {
 
 function updateClouds(delta) {
   world.clouds.forEach((cloud, index) => {
-    cloud.position.x += delta * (1 + index * 0.2) * state.windDirection.x * 6;
-    cloud.position.z += delta * (1 + index * 0.2) * state.windDirection.y * 6;
+    const speed = state.cloudSpeed * (1 + index * 0.2);
+    cloud.position.x += delta * speed * state.windDirection.x * 6;
+    cloud.position.z += delta * speed * state.windDirection.y * 6;
     if (cloud.position.x > 120) cloud.position.x = -120;
     if (cloud.position.x < -120) cloud.position.x = 120;
     if (cloud.position.z > 120) cloud.position.z = -120;
@@ -390,9 +511,14 @@ function updateNPCs(delta) {
       npc.userData.wanderAngle = Math.random() * Math.PI * 2;
       npc.userData.wanderTimer = 2 + Math.random() * 4;
     }
-    npc.position.x += Math.cos(npc.userData.wanderAngle) * npc.userData.speed * delta;
-    npc.position.z += Math.sin(npc.userData.wanderAngle) * npc.userData.speed * delta;
     const distance = npc.position.distanceTo(world.target);
+    if (distance < 8) {
+      const away = npc.position.clone().sub(world.target).normalize();
+      npc.position.add(away.multiplyScalar(npc.userData.avoidStrength * delta));
+    } else {
+      npc.position.x += Math.cos(npc.userData.wanderAngle) * npc.userData.speed * delta;
+      npc.position.z += Math.sin(npc.userData.wanderAngle) * npc.userData.speed * delta;
+    }
     npc.material.color.copy(distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor);
   });
 }
@@ -503,6 +629,9 @@ function updateEvents(delta) {
 }
 
 function getZoneLabel(position) {
+  if (state.currentInterior) {
+    return state.currentInterior.name;
+  }
   if (position.x < -30 && position.z < -30) {
     return "Airstrip";
   }
@@ -520,6 +649,43 @@ function getZoneLabel(position) {
 
 function updateZone() {
   hudLocation.textContent = getZoneLabel(world.target);
+}
+
+function findNearbyInterior() {
+  return world.interiors.find((interior) => interior.door.position.distanceTo(world.player.position) < 5);
+}
+
+function enterInterior(interior) {
+  state.currentInterior = interior;
+  interior.interiorGroup.visible = true;
+  interior.exterior.visible = false;
+  interior.door.visible = false;
+  world.player.position.copy(interior.entryPoint);
+  pushEvent(`Entered ${interior.name}.`);
+}
+
+function exitInterior() {
+  if (!state.currentInterior) return;
+  const interior = state.currentInterior;
+  interior.interiorGroup.visible = false;
+  interior.exterior.visible = true;
+  interior.door.visible = true;
+  world.player.position.copy(interior.exitPoint);
+  pushEvent(`Exited ${interior.name}.`);
+  state.currentInterior = null;
+}
+
+function handleInteract() {
+  if (state.currentInterior) {
+    exitInterior();
+    return;
+  }
+  const nearbyInterior = findNearbyInterior();
+  if (nearbyInterior) {
+    enterInterior(nearbyInterior);
+    return;
+  }
+  toggleVehicle();
 }
 
 function animate() {
@@ -560,7 +726,7 @@ function handleKeyDown(event) {
       state.input.right = true;
       break;
     case "e":
-      toggleVehicle();
+      handleInteract();
       break;
     case "h":
       toggleHud();
@@ -659,7 +825,7 @@ function updateController() {
     const storyPressed = gamepad.buttons[2]?.pressed;
     const cameraPressed = gamepad.buttons[3]?.pressed;
     if (actionPressed && !state.actionPressed) {
-      toggleVehicle();
+      handleInteract();
     }
     if (hudPressed && !state.hudPressed) {
       toggleHud();
@@ -669,6 +835,12 @@ function updateController() {
     }
     if (cameraPressed && !state.cameraPressed) {
       switchCamera();
+    }
+    if (!mainMenu.classList.contains("hidden") && gamepad.buttons[9]?.pressed) {
+      startExperience();
+    }
+    if (!mainMenu.classList.contains("hidden") && gamepad.buttons[3]?.pressed && !state.cameraPressed) {
+      toggleMenuSettings();
     }
     state.actionPressed = Boolean(actionPressed);
     state.hudPressed = Boolean(hudPressed);
@@ -690,6 +862,8 @@ function updateController() {
 
 function startExperience() {
   mainMenu.classList.add("hidden");
+  menuSettings.classList.add("hidden");
+  applySettings();
   initScene();
   initStoryList();
   pushEvent("Welcome to Metro Drift. Dispatch live!");
@@ -709,9 +883,13 @@ startBtn?.addEventListener("click", startExperience);
 menuStartBtn?.addEventListener("click", startExperience);
 menuStoryBtn?.addEventListener("click", () => {
   mainMenu.classList.add("hidden");
+  menuSettings.classList.add("hidden");
+  applySettings();
   initScene();
   initStoryList();
 });
+menuSettingsBtn?.addEventListener("click", toggleMenuSettings);
+settingsApplyBtn?.addEventListener("click", applySettings);
 fullscreenBtn?.addEventListener("click", handleFullscreen);
 toggleHudBtn?.addEventListener("click", toggleHud);
 

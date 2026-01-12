@@ -55,17 +55,61 @@ body {
   font-size: 2.2rem;
 }
 
+.menu-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
 .menu-actions {
   display: flex;
   gap: 0.75rem;
   justify-content: center;
   margin-top: 1.5rem;
+  flex-wrap: wrap;
 }
 
 .small {
   font-size: 0.85rem;
   color: var(--muted);
   margin-top: 1rem;
+}
+
+.menu-settings {
+  margin-top: 1.5rem;
+  background: rgba(10, 15, 30, 0.7);
+  border-radius: 16px;
+  padding: 1rem 1.25rem;
+  text-align: left;
+}
+
+.menu-settings.hidden {
+  display: none;
+}
+
+.menu-settings h3 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.6rem;
+}
+
+.setting-row input[type="range"] {
+  width: 160px;
+}
+
+.setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
 }
 
 .spinner {
@@ -180,6 +224,11 @@ body {
   z-index: 3;
   max-width: 280px;
   transition: opacity 0.3s ease;
+}
+
+.hud.high-contrast {
+  background: rgba(0, 0, 0, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .hud.hidden {

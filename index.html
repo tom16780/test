@@ -9,13 +9,41 @@
 <body>
   <div id="main-menu" class="overlay menu">
     <div class="menu-card">
-      <h1>Metro Drift</h1>
+      <div class="menu-title">
+        <h1>Metro Drift</h1>
+        <span class="badge info">AAA Vision Prototype</span>
+      </div>
       <p class="muted">A modern-day open-world prototype with a cinematic story, dynamic weather, and controller support.</p>
       <div class="menu-actions">
         <button id="menu-start-btn" class="primary">Start Free Roam</button>
         <button id="menu-story-btn" class="secondary">View Story Beats</button>
+        <button id="menu-settings-btn" class="secondary">Settings</button>
       </div>
-      <p class="small">Tip: Press E to enter/exit vehicles. Press H to toggle HUD.</p>
+      <div id="menu-settings" class="menu-settings hidden">
+        <h3>Game Settings</h3>
+        <label class="setting-row">
+          <span>Weather Cycle</span>
+          <input id="setting-weather" type="range" min="0.5" max="2" step="0.1" value="1" />
+        </label>
+        <label class="setting-row">
+          <span>NPC Density</span>
+          <input id="setting-npcs" type="range" min="6" max="18" step="1" value="10" />
+        </label>
+        <label class="setting-row">
+          <span>Traffic Density</span>
+          <input id="setting-traffic" type="range" min="2" max="8" step="1" value="4" />
+        </label>
+        <label class="setting-row">
+          <span>Cloud Speed</span>
+          <input id="setting-clouds" type="range" min="0.5" max="2.5" step="0.1" value="1" />
+        </label>
+        <label class="setting-row">
+          <span>High-Contrast HUD</span>
+          <input id="setting-hud" type="checkbox" />
+        </label>
+        <button id="settings-apply-btn" class="primary">Apply Settings</button>
+      </div>
+      <p class="small">Tip: Press E to enter/exit vehicles. Press H to toggle HUD. Press T for story panel.</p>
     </div>
   </div>
 
