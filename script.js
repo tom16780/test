@@ -1,14 +1,24 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
 
 const storyBeats = [
-  "Hour 1: Arrive in Metro Valley, take your first dispatch call.",
-  "Hour 2: Meet the crew at Pier 9 and investigate a missing convoy.",
-  "Hour 3: High-speed pursuit through the skyline expressway.",
-  "Hour 4: Calm before the storm at the rooftop lookout.",
-  "Hour 5: Night infiltration at the finance district gala.",
-  "Hour 6: Escape across the river bridges in a thunderstorm.",
-  "Hour 7: Desert airstrip showdown with rival pilots.",
-  "Hour 8: Sunrise finale and the city-wide blackout reveal.",
+  "Hours 1-6: Arrive in Metro Valley, build trust with dispatch and local crews.",
+  "Hours 7-14: Investigate the missing convoy with Pier 9 responders.",
+  "Hours 15-22: Track underground street races across the skyline expressway.",
+  "Hours 23-30: Secure the finance district during a citywide data breach.",
+  "Hours 31-38: Rally emergency teams through the first storm front.",
+  "Hours 39-46: Escort evacuees during the harbor blackout crisis.",
+  "Hours 47-54: Follow the desert airstrip trail to the rival network.",
+  "Hours 55-62: Coordinate multi-agency response in downtown lockdown.",
+  "Hours 63-70: Recover the missing convoy and expose the mastermind.",
+  "Hours 71-74: Restore the city as sunrise returns to Metro Valley.",
+];
+
+const tutorialSteps = [
+  "Move with WASD or left stick. Tap C to cycle camera distances.",
+  "Press E to enter vehicles or interiors. Press E again to exit.",
+  "Toggle Inventory with I (or LB). Swap weapons with 1/2/3 or LB/RB.",
+  "Use F (or Right Stick Click) to fire your equipped weapon.",
+  "Follow live encounters to unlock story beats across the city.",
 ];
 
 const randomEvents = [
@@ -46,11 +56,14 @@ const hudTime = document.getElementById("hud-time");
 const hudWeather = document.getElementById("hud-weather");
 const eventFeed = document.getElementById("event-feed");
 const storyList = document.getElementById("story-list");
+const tutorialList = document.getElementById("tutorial-list");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const toggleHudBtn = document.getElementById("toggle-hud-btn");
+const toggleTutorialBtn = document.getElementById("toggle-tutorial-btn");
 const hud = document.getElementById("hud");
 const storyPanel = document.getElementById("story-panel");
 const eventPanel = document.getElementById("event-panel");
+const tutorialPanel = document.getElementById("tutorial-panel");
 
 const state = {
   sceneReady: false,
@@ -69,6 +82,7 @@ const state = {
   cameraPressed: false,
   storyPressed: false,
   storyVisible: true,
+  tutorialVisible: true,
   cameraIndex: 0,
   windDirection: new THREE.Vector2(1, 0.2),
   analogThrottle: 0,
@@ -77,6 +91,7 @@ const state = {
   trafficCount: 4,
   cloudSpeed: 1,
   highContrastHud: false,
+  tutorialPressed: false,
   input: {
     forward: false,
     backward: false,
@@ -93,6 +108,7 @@ const weatherStates = [
   { label: "Clear", fog: 0x0c1424, intensity: 1 },
   { label: "Cloudy", fog: 0x0b111f, intensity: 0.8 },
   { label: "Rain", fog: 0x0a0f1c, intensity: 0.6 },
+  { label: "Storm", fog: 0x090c18, intensity: 0.5 },
 ];
 
 const world = {
@@ -108,6 +124,7 @@ const world = {
   cars: [],
   plane: null,
   interiors: [],
+  police: [],
   target: new THREE.Vector3(),
   cameraOffset: new THREE.Vector3(0, 12, 18),
   cameraOffsets: [
@@ -127,6 +144,16 @@ function initStoryList() {
       item.style.color = "#fff";
     }
     storyList.appendChild(item);
+  });
+}
+
+function initTutorial() {
+  if (!tutorialList) return;
+  tutorialList.innerHTML = "";
+  tutorialSteps.forEach((step) => {
+    const item = document.createElement("li");
+    item.textContent = step;
+    tutorialList.appendChild(item);
   });
 }
 
@@ -204,8 +231,11 @@ function initScene() {
   buildNPCs();
   buildCars();
   buildPlane();
+  buildCityProps();
+  buildPolice();
   buildClouds();
   buildRain();
+  initTutorial();
 
   window.addEventListener("resize", handleResize);
   sceneCanvas.addEventListener("click", () => sceneCanvas.focus());
@@ -239,16 +269,40 @@ function buildBuildings() {
   for (let x = -80; x <= 80; x += 20) {
     for (let z = -80; z <= 80; z += 20) {
       if (Math.abs(x) < 12 || Math.abs(z) < 12) continue;
-      const height = 6 + Math.random() * 18;
+      const height = 8 + Math.random() * 20;
       const geometry = new THREE.BoxGeometry(10, height, 10);
       const building = new THREE.Mesh(geometry, buildingMaterial.clone());
-      building.material.color.setHSL(0.6, 0.35, 0.25 + Math.random() * 0.2);
+      building.material.color.setHSL(0.6, 0.35, 0.22 + Math.random() * 0.25);
       building.position.set(x + (Math.random() * 6 - 3), height / 2, z + (Math.random() * 6 - 3));
       building.castShadow = true;
       building.receiveShadow = true;
       world.scene.add(building);
+
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), new THREE.MeshStandardMaterial({ color: 0x1b243a }));
+      roof.position.set(building.position.x, height + 1, building.position.z);
+      roof.rotation.y = Math.random() * Math.PI;
+      roof.castShadow = true;
+      world.scene.add(roof);
     }
   }
+}
+
+function buildCityProps() {
+  const lampMaterial = new THREE.MeshStandardMaterial({ color: 0x2e3a55, roughness: 0.6 });
+  const lampHeadMaterial = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffd28a, emissiveIntensity: 0.6 });
+  for (let i = -90; i <= 90; i += 30) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6), lampMaterial);
+    pole.position.set(i, 3, -15);
+    world.scene.add(pole);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), lampHeadMaterial);
+    head.position.set(i, 6, -15);
+    world.scene.add(head);
+  }
+
+  const park = new THREE.Mesh(new THREE.CircleGeometry(12, 24), new THREE.MeshStandardMaterial({ color: 0x163020 }));
+  park.rotation.x = -Math.PI / 2;
+  park.position.set(40, 0.02, 40);
+  world.scene.add(park);
 }
 
 function clearInteriors() {
@@ -372,6 +426,24 @@ function buildCars() {
     const geometry = new THREE.BoxGeometry(3.5, 1.4, 6.5);
     const car = new THREE.Mesh(geometry, carMaterial.clone());
     car.material.color.setHSL(0.95 - i * 0.1, 0.6, 0.5);
+      goal: new THREE.Vector3((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120),
+function buildPolice() {
+  clearMeshes(world.police);
+  const geometry = new THREE.CapsuleGeometry(0.8, 1.6, 4, 8);
+  for (let i = 0; i < 4; i += 1) {
+    const material = new THREE.MeshStandardMaterial({ color: 0x4fd2ff });
+    const officer = new THREE.Mesh(geometry, material);
+    officer.position.set((Math.random() - 0.5) * 80, 1.6, (Math.random() - 0.5) * 80);
+    officer.userData = {
+      patrolAngle: Math.random() * Math.PI * 2,
+      speed: 3.5,
+    };
+    officer.castShadow = true;
+    world.scene.add(officer);
+    world.police.push(officer);
+  }
+}
+
     car.position.set(-20 + i * 12, 0.8, 10 + i * 6);
     car.userData = {
       velocity: new THREE.Vector3(),
@@ -492,6 +564,11 @@ function updateRain(delta) {
   world.rain.geometry.attributes.position.needsUpdate = true;
 }
 
+  if (currentWeather.label === "Storm" && Math.random() < 0.02) {
+    world.ambientLight.intensity = 1.2;
+  } else {
+    world.ambientLight.intensity = 0.3 + Math.max(0.2, Math.sin(state.timeOfDay / 24 * Math.PI * 2) + 0.5) * 0.4;
+  }
 function updateClouds(delta) {
   world.clouds.forEach((cloud, index) => {
     const speed = state.cloudSpeed * (1 + index * 0.2);
@@ -512,14 +589,39 @@ function updateNPCs(delta) {
       npc.userData.wanderTimer = 2 + Math.random() * 4;
     }
     const distance = npc.position.distanceTo(world.target);
-    if (distance < 8) {
+    const steering = new THREE.Vector3();
+    if (distance < 10) {
       const away = npc.position.clone().sub(world.target).normalize();
-      npc.position.add(away.multiplyScalar(npc.userData.avoidStrength * delta));
-    } else {
-      npc.position.x += Math.cos(npc.userData.wanderAngle) * npc.userData.speed * delta;
-      npc.position.z += Math.sin(npc.userData.wanderAngle) * npc.userData.speed * delta;
+      steering.add(away.multiplyScalar(npc.userData.avoidStrength));
     }
+    if (npc.position.distanceTo(npc.userData.goal) < 4) {
+      npc.userData.goal.set((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120);
+    }
+    const goalDirection = npc.userData.goal.clone().sub(npc.position).normalize();
+    steering.add(goalDirection.multiplyScalar(1.5));
+    world.npcs.forEach((other) => {
+      if (other === npc) return;
+      const separation = npc.position.distanceTo(other.position);
+      if (separation < 3) {
+        steering.add(npc.position.clone().sub(other.position).normalize().multiplyScalar(2));
+      }
+    });
+    npc.position.add(steering.multiplyScalar(npc.userData.speed * delta * 0.3));
     npc.material.color.copy(distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor);
+  });
+}
+
+function updatePolice(delta) {
+  world.police.forEach((officer) => {
+    const distance = officer.position.distanceTo(world.target);
+    const direction = world.target.clone().sub(officer.position).normalize();
+    if (distance < 25) {
+      officer.position.add(direction.multiplyScalar(officer.userData.speed * delta));
+    } else {
+      officer.userData.patrolAngle += delta * 0.6;
+      officer.position.x += Math.cos(officer.userData.patrolAngle) * delta * 2;
+      officer.position.z += Math.sin(officer.userData.patrolAngle) * delta * 2;
+    }
   });
 }
 
@@ -628,6 +730,11 @@ function updateEvents(delta) {
   }
 }
 
+function adjustCameraZoom(delta) {
+  const zoomTarget = THREE.MathUtils.clamp(world.cameraOffset.length() + delta, 8, 30);
+  world.cameraOffset.setLength(zoomTarget);
+}
+
 function getZoneLabel(position) {
   if (state.currentInterior) {
     return state.currentInterior.name;
@@ -717,6 +824,7 @@ function handleKeyDown(event) {
     case "arrowdown":
       state.input.backward = true;
       break;
+  updatePolice(delta);
     case "a":
     case "arrowleft":
       state.input.left = true;
@@ -734,8 +842,17 @@ function handleKeyDown(event) {
     case "t":
       toggleStoryPanel();
       break;
+    case "u":
+      toggleTutorialPanel();
+      break;
     case "c":
       switchCamera();
+      break;
+    case "z":
+      adjustCameraZoom(-1);
+      break;
+    case "x":
+      adjustCameraZoom(1);
       break;
     default:
       break;
@@ -847,6 +964,24 @@ function updateController() {
     state.storyPressed = Boolean(storyPressed);
     state.cameraPressed = Boolean(cameraPressed);
   } else {
+function toggleTutorialPanel() {
+  state.tutorialVisible = !state.tutorialVisible;
+  tutorialPanel.classList.toggle("hidden", !state.tutorialVisible);
+}
+
+    const tutorialPressed = gamepad.buttons[8]?.pressed;
+    const zoomInPressed = gamepad.buttons[12]?.pressed;
+    const zoomOutPressed = gamepad.buttons[13]?.pressed;
+    if (tutorialPressed && !state.tutorialPressed) {
+      toggleTutorialPanel();
+    }
+    if (zoomInPressed) {
+      adjustCameraZoom(-0.5);
+    }
+    if (zoomOutPressed) {
+      adjustCameraZoom(0.5);
+    }
+    state.tutorialPressed = Boolean(tutorialPressed);
     state.controllerActive = false;
     controllerStatus.textContent = "Searching...";
     state.analog.x = 0;
@@ -855,6 +990,7 @@ function updateController() {
     state.hudPressed = false;
     state.storyPressed = false;
     state.cameraPressed = false;
+    state.tutorialPressed = false;
     state.analogThrottle = 0;
   }
   requestAnimationFrame(updateController);
@@ -866,6 +1002,7 @@ function startExperience() {
   applySettings();
   initScene();
   initStoryList();
+  initTutorial();
   pushEvent("Welcome to Metro Drift. Dispatch live!");
 }
 
@@ -887,10 +1024,12 @@ menuStoryBtn?.addEventListener("click", () => {
   applySettings();
   initScene();
   initStoryList();
+  initTutorial();
 });
 menuSettingsBtn?.addEventListener("click", toggleMenuSettings);
 settingsApplyBtn?.addEventListener("click", applySettings);
 fullscreenBtn?.addEventListener("click", handleFullscreen);
 toggleHudBtn?.addEventListener("click", toggleHud);
+toggleTutorialBtn?.addEventListener("click", toggleTutorialPanel);
 
 updateController();

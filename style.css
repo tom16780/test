@@ -277,6 +277,25 @@ body {
   overflow: hidden;
 }
 
+.tutorial-panel {
+  position: absolute;
+  bottom: 1rem;
+  left: 1rem;
+  width: 260px;
+  background: rgba(10, 15, 30, 0.65);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  z-index: 3;
+  font-size: 0.85rem;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.tutorial-panel ol {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--muted);
+}
+
 .story-panel h3,
 .event-panel h3 {
   margin: 0 0 0.5rem;
@@ -381,3 +400,5 @@ footer {
     margin-top: 1rem;
   }
 }
+  .inventory-panel,
+  .tutorial-panel {

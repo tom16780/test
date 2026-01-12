@@ -43,7 +43,7 @@
         </label>
         <button id="settings-apply-btn" class="primary">Apply Settings</button>
       </div>
-      <p class="small">Tip: Press E to enter/exit vehicles. Press H to toggle HUD. Press T for story panel.</p>
+      <p class="small">Tip: Press E to enter/exit. H for HUD, I for inventory, F to fire, Z/X to zoom camera.</p>
     </div>
   </div>
 
@@ -88,8 +88,13 @@
           <div class="hud-actions">
             <button id="fullscreen-btn" class="secondary hud-btn">Fullscreen</button>
             <button id="toggle-hud-btn" class="secondary hud-btn">Toggle HUD</button>
+            <button id="toggle-tutorial-btn" class="secondary hud-btn">Tutorial</button>
           </div>
           <div class="muted">WASD/Arrows or Xbox controller to move. E to enter/exit.</div>
+        </div>
+        <div id="tutorial-panel" class="tutorial-panel panel">
+          <h3>First Responders Tutorial</h3>
+          <ol id="tutorial-list"></ol>
         </div>
         <div id="story-panel" class="story-panel panel">
           <h3>Story Beats (8 hours)</h3>
