@@ -18,6 +18,7 @@
         <button id="menu-start-btn" class="primary">Start Free Roam</button>
         <button id="menu-story-btn" class="secondary">View Story Beats</button>
         <button id="menu-settings-btn" class="secondary">Settings</button>
+        <button id="menu-credits-btn" class="secondary">Soundtrack</button>
       </div>
       <div id="menu-settings" class="menu-settings hidden">
         <h3>Game Settings</h3>
@@ -85,19 +86,25 @@
           <div><strong>Mode:</strong> <span id="hud-mode">On Foot</span></div>
           <div><strong>Time:</strong> <span id="hud-time">18:00</span></div>
           <div><strong>Weather:</strong> <span id="hud-weather">Clear</span></div>
+          <div><strong>Waypoint:</strong> <span id="hud-waypoint">None</span></div>
           <div class="hud-actions">
             <button id="fullscreen-btn" class="secondary hud-btn">Fullscreen</button>
             <button id="toggle-hud-btn" class="secondary hud-btn">Toggle HUD</button>
             <button id="toggle-tutorial-btn" class="secondary hud-btn">Tutorial</button>
+            <button id="pause-btn" class="secondary hud-btn">Pause</button>
           </div>
           <div class="muted">WASD/Arrows or Xbox controller to move. E to enter/exit.</div>
+        </div>
+        <div class="minimap-panel">
+          <canvas id="minimap" width="180" height="180"></canvas>
+          <div class="minimap-hint muted">Click to set waypoint.</div>
         </div>
         <div id="tutorial-panel" class="tutorial-panel panel">
           <h3>First Responders Tutorial</h3>
           <ol id="tutorial-list"></ol>
         </div>
         <div id="story-panel" class="story-panel panel">
-          <h3>Story Beats (8 hours)</h3>
+          <h3>Story Beats (70+ hours)</h3>
           <ol id="story-list"></ol>
         </div>
         <div id="event-panel" class="event-panel panel">
@@ -111,6 +118,21 @@
   <footer>
     <p>Prototype features: drivable cars, flyable plane, day/night cycle, reactive NPCs, weather, and controller recognition.</p>
   </footer>
+
+  <div id="pause-menu" class="overlay pause hidden">
+    <div class="menu-card pause-card">
+      <h2>Pause Menu</h2>
+      <p class="muted">Review your route, adjust settings, or resume when ready.</p>
+      <div class="pause-actions">
+        <button id="resume-btn" class="primary">Resume</button>
+        <button id="map-btn" class="secondary">Map</button>
+      </div>
+      <div id="pause-map" class="pause-map">
+        <canvas id="pause-minimap" width="360" height="360"></canvas>
+        <div class="minimap-hint muted">Click to set waypoint.</div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="script.js"></script>
 </body>

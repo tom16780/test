@@ -42,6 +42,7 @@ const startBtn = document.getElementById("start-btn");
 const menuStartBtn = document.getElementById("menu-start-btn");
 const menuStoryBtn = document.getElementById("menu-story-btn");
 const menuSettingsBtn = document.getElementById("menu-settings-btn");
+const menuCreditsBtn = document.getElementById("menu-credits-btn");
 const menuSettings = document.getElementById("menu-settings");
 const settingWeather = document.getElementById("setting-weather");
 const settingNpcs = document.getElementById("setting-npcs");
@@ -60,10 +61,17 @@ const tutorialList = document.getElementById("tutorial-list");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
 const toggleHudBtn = document.getElementById("toggle-hud-btn");
 const toggleTutorialBtn = document.getElementById("toggle-tutorial-btn");
+const pauseBtn = document.getElementById("pause-btn");
 const hud = document.getElementById("hud");
 const storyPanel = document.getElementById("story-panel");
 const eventPanel = document.getElementById("event-panel");
 const tutorialPanel = document.getElementById("tutorial-panel");
+const hudWaypoint = document.getElementById("hud-waypoint");
+const minimap = document.getElementById("minimap");
+const pauseMenu = document.getElementById("pause-menu");
+const resumeBtn = document.getElementById("resume-btn");
+const mapBtn = document.getElementById("map-btn");
+const pauseMinimap = document.getElementById("pause-minimap");
 
 const state = {
   sceneReady: false,
@@ -83,6 +91,7 @@ const state = {
   storyPressed: false,
   storyVisible: true,
   tutorialVisible: true,
+  paused: false,
   cameraIndex: 0,
   windDirection: new THREE.Vector2(1, 0.2),
   analogThrottle: 0,
@@ -92,6 +101,10 @@ const state = {
   cloudSpeed: 1,
   highContrastHud: false,
   tutorialPressed: false,
+  pausePressed: false,
+  waypoint: null,
+  waypointLabel: "None",
+  npcMemory: new Map(),
   input: {
     forward: false,
     backward: false,
@@ -125,6 +138,7 @@ const world = {
   plane: null,
   interiors: [],
   police: [],
+  waypointMesh: null,
   target: new THREE.Vector3(),
   cameraOffset: new THREE.Vector3(0, 12, 18),
   cameraOffsets: [
@@ -134,6 +148,9 @@ const world = {
   ],
 };
 const clock = new THREE.Clock();
+let audioCtx;
+let musicGain;
+let ambienceGain;
 
 function initStoryList() {
   storyList.innerHTML = "";
@@ -155,6 +172,89 @@ function initTutorial() {
     item.textContent = step;
     tutorialList.appendChild(item);
   });
+}
+
+function updateWaypointLabel() {
+  hudWaypoint.textContent = state.waypointLabel || "None";
+}
+
+function setWaypoint(position, label = "Custom Marker") {
+  state.waypoint = position.clone();
+  state.waypointLabel = label;
+  updateWaypointLabel();
+  if (!world.waypointMesh) {
+    const marker = new THREE.Mesh(
+      new THREE.ConeGeometry(0.6, 2, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffb347 }),
+    );
+    marker.castShadow = true;
+    world.scene.add(marker);
+    world.waypointMesh = marker;
+  }
+  world.waypointMesh.position.set(position.x, 1.2, position.z);
+}
+
+function drawMinimap(canvas) {
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const size = canvas.width;
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = "#0b0f1f";
+  context.fillRect(0, 0, size, size);
+  context.strokeStyle = "#2a324f";
+  context.strokeRect(8, 8, size - 16, size - 16);
+
+  const scale = (size - 20) / 220;
+  const offset = size / 2;
+
+  context.fillStyle = "#4fd2ff";
+  context.beginPath();
+  context.arc(offset + world.target.x * scale, offset + world.target.z * scale, 4, 0, Math.PI * 2);
+  context.fill();
+
+  if (state.waypoint) {
+    context.fillStyle = "#ffb347";
+    context.beginPath();
+    context.arc(offset + state.waypoint.x * scale, offset + state.waypoint.z * scale, 4, 0, Math.PI * 2);
+    context.fill();
+  }
+}
+
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new AudioContext();
+  musicGain = audioCtx.createGain();
+  ambienceGain = audioCtx.createGain();
+  musicGain.gain.value = 0.12;
+  ambienceGain.gain.value = 0.08;
+  musicGain.connect(audioCtx.destination);
+  ambienceGain.connect(audioCtx.destination);
+
+  const musicOsc = audioCtx.createOscillator();
+  musicOsc.type = "sine";
+  musicOsc.frequency.value = 196;
+  musicOsc.connect(musicGain);
+  musicOsc.start();
+
+  const ambienceOsc = audioCtx.createOscillator();
+  ambienceOsc.type = "triangle";
+  ambienceOsc.frequency.value = 80;
+  ambienceOsc.connect(ambienceGain);
+  ambienceOsc.start();
+}
+
+function playSfx(frequency = 440, duration = 0.08) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
 }
 
 function pushEvent(message) {
@@ -188,6 +288,7 @@ function applySettings() {
   if (state.sceneReady) {
     buildNPCs();
     buildCars();
+    buildPolice();
   }
 }
 
@@ -210,8 +311,13 @@ function initScene() {
   world.renderer.setPixelRatio(window.devicePixelRatio || 1);
   world.renderer.setSize(width, height, false);
   world.renderer.shadowMap.enabled = true;
+  world.renderer.physicallyCorrectLights = true;
+  world.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  world.renderer.toneMappingExposure = 1.1;
 
   world.ambientLight = new THREE.AmbientLight(0xbad4ff, 0.4);
+  const hemiLight = new THREE.HemisphereLight(0x7fb7ff, 0x0b1020, 0.6);
+  world.scene.add(hemiLight);
   world.sunLight = new THREE.DirectionalLight(0xfff4dd, 1.1);
   world.sunLight.position.set(30, 40, 20);
   world.sunLight.castShadow = true;
@@ -231,6 +337,8 @@ function initScene() {
   buildNPCs();
   buildCars();
   buildPlane();
+  updateWaypointLabel();
+  initAudio();
   buildCityProps();
   buildPolice();
   buildClouds();
@@ -309,6 +417,11 @@ function clearInteriors() {
   world.interiors.forEach((interior) => {
     world.scene.remove(interior.exterior);
     world.scene.remove(interior.door);
+
+  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), new THREE.MeshStandardMaterial({ color: 0x202a3f }));
+  plaza.rotation.x = -Math.PI / 2;
+  plaza.position.set(-30, 0.02, 50);
+  world.scene.add(plaza);
     world.scene.remove(interior.interiorGroup);
   });
   world.interiors.length = 0;
@@ -324,6 +437,11 @@ function buildEnterableBuildings() {
     { name: "Corner Shop", position: new THREE.Vector3(40, 0, -40) },
     { name: "Skyline Cafe", position: new THREE.Vector3(-50, 0, 40) },
     { name: "Metro Outfitters", position: new THREE.Vector3(-60, 0, -10) },
+    { name: "Harbor Market", position: new THREE.Vector3(60, 0, 30) },
+    { name: "Central Clinic", position: new THREE.Vector3(20, 0, 60) },
+    { name: "Tech Office", position: new THREE.Vector3(-20, 0, -60) },
+    { name: "Riverside Diner", position: new THREE.Vector3(-70, 0, 20) },
+    { name: "Auto Garage", position: new THREE.Vector3(70, 0, -20) },
   ];
 
   buildings.forEach((building) => {
@@ -427,6 +545,10 @@ function buildCars() {
     const car = new THREE.Mesh(geometry, carMaterial.clone());
     car.material.color.setHSL(0.95 - i * 0.1, 0.6, 0.5);
       goal: new THREE.Vector3((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120),
+      job: ["Courier", "Barista", "Dispatcher", "Mechanic", "Pilot"][Math.floor(Math.random() * 5)],
+      voiceLine: ["Hey there!", "Stay safe out here.", "Rough weather today.", "Need a ride?", "Busy shift."][
+        Math.floor(Math.random() * 5)
+      ],
 function buildPolice() {
   clearMeshes(world.police);
   const geometry = new THREE.CapsuleGeometry(0.8, 1.6, 4, 8);
@@ -564,7 +686,7 @@ function updateRain(delta) {
   world.rain.geometry.attributes.position.needsUpdate = true;
 }
 
-  if (currentWeather.label === "Storm" && Math.random() < 0.02) {
+  world.rain.visible = currentWeather.label === "Rain" || currentWeather.label === "Storm";
     world.ambientLight.intensity = 1.2;
   } else {
     world.ambientLight.intensity = 0.3 + Math.max(0.2, Math.sin(state.timeOfDay / 24 * Math.PI * 2) + 0.5) * 0.4;
@@ -589,6 +711,17 @@ function updateNPCs(delta) {
       npc.userData.wanderTimer = 2 + Math.random() * 4;
     }
     const distance = npc.position.distanceTo(world.target);
+    const memory = state.npcMemory.get(npc) || { familiarity: 0, lastSpoke: 0 };
+    if (distance < 6) {
+      memory.familiarity = Math.min(1, memory.familiarity + delta * 0.2);
+      if (memory.familiarity > 0.6 && performance.now() - memory.lastSpoke > 8000) {
+        speakNPC(npc.userData.voiceLine);
+        memory.lastSpoke = performance.now();
+      }
+    } else {
+      memory.familiarity = Math.max(0, memory.familiarity - delta * 0.05);
+    }
+    state.npcMemory.set(npc, memory);
     const steering = new THREE.Vector3();
     if (distance < 10) {
       const away = npc.position.clone().sub(world.target).normalize();
@@ -606,8 +739,10 @@ function updateNPCs(delta) {
         steering.add(npc.position.clone().sub(other.position).normalize().multiplyScalar(2));
       }
     });
-    npc.position.add(steering.multiplyScalar(npc.userData.speed * delta * 0.3));
-    npc.material.color.copy(distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor);
+    const weatherFactor = weatherStates[state.weatherIndex].label === "Storm" ? 0.7 : 1;
+    npc.position.add(steering.multiplyScalar(npc.userData.speed * delta * 0.3 * weatherFactor));
+    const moodColor = distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor;
+    npc.material.color.copy(moodColor);
   });
 }
 
@@ -631,9 +766,11 @@ function updateTraffic(delta) {
     const targetSpeed = car.userData.maxSpeed * (state.weatherIndex === 2 ? 0.6 : 1);
     car.userData.speed = THREE.MathUtils.lerp(car.userData.speed, targetSpeed, 0.02);
     car.position.x += car.userData.direction * car.userData.speed * delta * 0.5;
+    car.position.z += Math.sin(car.userData.heading) * delta * 0.4;
     car.rotation.y = car.userData.direction > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
     if (car.position.x > 110 || car.position.x < -110) {
       car.userData.direction *= -1;
+      car.userData.heading += Math.PI * 0.25;
     }
   });
 }
@@ -735,6 +872,23 @@ function adjustCameraZoom(delta) {
   world.cameraOffset.setLength(zoomTarget);
 }
 
+function togglePause() {
+  state.paused = !state.paused;
+  pauseMenu.classList.toggle("hidden", !state.paused);
+}
+
+function handleMinimapClick(event, canvas) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const size = canvas.width;
+  const scale = (size - 20) / 220;
+  const worldX = (x - size / 2) / scale;
+  const worldZ = (y - size / 2) / scale;
+  setWaypoint(new THREE.Vector3(worldX, 0, worldZ), "Custom Waypoint");
+}
+
 function getZoneLabel(position) {
   if (state.currentInterior) {
     return state.currentInterior.name;
@@ -818,11 +972,21 @@ function handleKeyDown(event) {
   switch (event.key.toLowerCase()) {
     case "w":
     case "arrowup":
+  if (state.paused) {
+    drawMinimap(minimap);
+    drawMinimap(pauseMinimap);
+    return;
+  }
+  drawMinimap(minimap);
+  drawMinimap(pauseMinimap);
       state.input.forward = true;
       break;
     case "s":
     case "arrowdown":
       state.input.backward = true;
+      break;
+    case "p":
+      togglePause();
       break;
   updatePolice(delta);
     case "a":
@@ -988,9 +1152,30 @@ function toggleTutorialPanel() {
     state.analog.y = 0;
     state.actionPressed = false;
     state.hudPressed = false;
+  playSfx(520, 0.06);
+  if (world.weaponMesh) {
+    world.weaponMesh.scale.set(1.2, 1.2, 1.4);
+    setTimeout(() => {
+      world.weaponMesh.scale.set(1, 1, 1);
+    }, 80);
+  }
+function speakNPC(message) {
+  if (!window.speechSynthesis) return;
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.rate = 1;
+  utterance.pitch = 1.1;
+  window.speechSynthesis.speak(utterance);
+}
+
+    const pausePressed = gamepad.buttons[9]?.pressed;
+    if (pausePressed && !state.pausePressed) {
+      togglePause();
+    }
+    state.pausePressed = Boolean(pausePressed);
     state.storyPressed = false;
     state.cameraPressed = false;
     state.tutorialPressed = false;
+    state.pausePressed = false;
     state.analogThrottle = 0;
   }
   requestAnimationFrame(updateController);
@@ -1033,3 +1218,11 @@ toggleHudBtn?.addEventListener("click", toggleHud);
 toggleTutorialBtn?.addEventListener("click", toggleTutorialPanel);
 
 updateController();
+menuCreditsBtn?.addEventListener("click", () => {
+  pushEvent("Now playing: Metro Drift Theme.");
+});
+pauseBtn?.addEventListener("click", togglePause);
+resumeBtn?.addEventListener("click", togglePause);
+mapBtn?.addEventListener("click", () => setWaypoint(world.target.clone(), "Resume Point"));
+minimap?.addEventListener("click", (event) => handleMinimapClick(event, minimap));
+pauseMinimap?.addEventListener("click", (event) => handleMinimapClick(event, pauseMinimap));
