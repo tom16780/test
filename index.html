@@ -3,32 +3,65 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Neighborhood Watch - Open Block</title>
+  <title>Metro Drift: Open World Prototype</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="main-menu" class="overlay menu">
     <div class="menu-card">
-      <h1>Neighborhood Watch</h1>
-      <p>Step into the block, investigate homes, and keep the neighbors calm.</p>
-      <button id="menu-start-btn" class="primary">Start Patrol</button>
+      <div class="menu-title">
+        <h1>Metro Drift</h1>
+        <span class="badge info">AAA Vision Prototype</span>
+      </div>
+      <p class="muted">A modern-day open-world prototype with a cinematic story, dynamic weather, and controller support.</p>
+      <div class="menu-actions">
+        <button id="menu-start-btn" class="primary">Start Free Roam</button>
+        <button id="menu-story-btn" class="secondary">View Story Beats</button>
+        <button id="menu-settings-btn" class="secondary">Settings</button>
+        <button id="menu-credits-btn" class="secondary">Soundtrack</button>
+      </div>
+      <div id="menu-settings" class="menu-settings hidden">
+        <h3>Game Settings</h3>
+        <label class="setting-row">
+          <span>Weather Cycle</span>
+          <input id="setting-weather" type="range" min="0.5" max="2" step="0.1" value="1" />
+        </label>
+        <label class="setting-row">
+          <span>NPC Density</span>
+          <input id="setting-npcs" type="range" min="6" max="18" step="1" value="10" />
+        </label>
+        <label class="setting-row">
+          <span>Traffic Density</span>
+          <input id="setting-traffic" type="range" min="2" max="8" step="1" value="4" />
+        </label>
+        <label class="setting-row">
+          <span>Cloud Speed</span>
+          <input id="setting-clouds" type="range" min="0.5" max="2.5" step="0.1" value="1" />
+        </label>
+        <label class="setting-row">
+          <span>High-Contrast HUD</span>
+          <input id="setting-hud" type="checkbox" />
+        </label>
+        <button id="settings-apply-btn" class="primary">Apply Settings</button>
+      </div>
+      <p class="small">Tip: Press E to enter/exit. H for HUD, I for inventory, F to fire, Z/X to zoom camera.</p>
     </div>
   </div>
 
   <div id="loading-screen" class="overlay loading hidden">
     <div class="loading-card">
       <div class="spinner"></div>
-      <p>Loading neighborhood...</p>
+      <p>Streaming the city...</p>
     </div>
   </div>
 
   <header class="hero">
     <div>
-      <h1>Neighborhood Watch: Open Block <span class="prototype">Prototype 1.1</span></h1>
-      <p>Explore a sleepy neighborhood in first-person and test the early 3D experience.</p>
+      <h1>Metro Drift <span class="prototype">RDR2-Scale Dream Prototype</span></h1>
+      <p>Free-roam a modern city with driving, flying, a day/night cycle, and live encounters. Built to demonstrate the scope of your request in a lightweight demo.</p>
     </div>
     <div class="hero-actions">
-      <button id="start-btn" class="primary">Start Night Watch</button>
+      <button id="start-btn" class="primary">Play Now</button>
       <div class="controller-hint">Controller Ready: <span id="controller-status">Searching...</span></div>
     </div>
   </header>
@@ -37,31 +70,69 @@
     <section class="map">
       <div class="map-header">
         <div>
-          <h2>Neighborhood Map</h2>
-          <p class="muted">Solve puzzles to unlock streets and calm the neighbors.</p>
+          <h2>Open World Snapshot</h2>
+          <p class="muted">Dynamic traffic, weather, and story beats update in real time.</p>
         </div>
         <div class="legend">
-          <span class="badge">Locked</span>
-          <span class="badge safe">Secured</span>
+          <span class="badge">On Foot</span>
+          <span class="badge safe">Driving</span>
+          <span class="badge info">Flying</span>
         </div>
       </div>
       <div id="scene-wrap" class="scene-wrap">
         <canvas id="scene" class="scene"></canvas>
-        <div class="hud">
-          <div><strong>Location:</strong> <span id="hud-location">Street</span></div>
-          <div><strong>Mode:</strong> <span id="hud-mode">Third-Person</span></div>
+        <div id="hud" class="hud">
+          <div><strong>Zone:</strong> <span id="hud-location">Downtown</span></div>
+          <div><strong>Mode:</strong> <span id="hud-mode">On Foot</span></div>
+          <div><strong>Time:</strong> <span id="hud-time">18:00</span></div>
+          <div><strong>Weather:</strong> <span id="hud-weather">Clear</span></div>
+          <div><strong>Waypoint:</strong> <span id="hud-waypoint">None</span></div>
           <div class="hud-actions">
-            <button id="fullscreen-btn" class="secondary hud-btn">Enter Fullscreen</button>
+            <button id="fullscreen-btn" class="secondary hud-btn">Fullscreen</button>
+            <button id="toggle-hud-btn" class="secondary hud-btn">Toggle HUD</button>
+            <button id="toggle-tutorial-btn" class="secondary hud-btn">Tutorial</button>
+            <button id="pause-btn" class="secondary hud-btn">Pause</button>
           </div>
-          <div class="muted">Click the 3D view to enter first-person. Esc to exit.</div>
+          <div class="muted">WASD/Arrows or Xbox controller to move. E to enter/exit.</div>
+        </div>
+        <div class="minimap-panel">
+          <canvas id="minimap" width="180" height="180"></canvas>
+          <div class="minimap-hint muted">Click to set waypoint.</div>
+        </div>
+        <div id="tutorial-panel" class="tutorial-panel panel">
+          <h3>First Responders Tutorial</h3>
+          <ol id="tutorial-list"></ol>
+        </div>
+        <div id="story-panel" class="story-panel panel">
+          <h3>Story Beats (70+ hours)</h3>
+          <ol id="story-list"></ol>
+        </div>
+        <div id="event-panel" class="event-panel panel">
+          <h3>Live Encounters</h3>
+          <ul id="event-feed"></ul>
         </div>
       </div>
     </section>
   </main>
 
   <footer>
-    <p>Tip: Items in interiors help solve puzzles and unlock new districts.</p>
+    <p>Prototype features: drivable cars, flyable plane, day/night cycle, reactive NPCs, weather, and controller recognition.</p>
   </footer>
+
+  <div id="pause-menu" class="overlay pause hidden">
+    <div class="menu-card pause-card">
+      <h2>Pause Menu</h2>
+      <p class="muted">Review your route, adjust settings, or resume when ready.</p>
+      <div class="pause-actions">
+        <button id="resume-btn" class="primary">Resume</button>
+        <button id="map-btn" class="secondary">Map</button>
+      </div>
+      <div id="pause-map" class="pause-map">
+        <canvas id="pause-minimap" width="360" height="360"></canvas>
+        <div class="minimap-hint muted">Click to set waypoint.</div>
+      </div>
+    </div>
+  </div>
 
   <script type="module" src="script.js"></script>
 </body>
