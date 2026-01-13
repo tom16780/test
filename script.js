@@ -1,1056 +1,1381 @@
 import * as THREE from "https://unpkg.com/three@0.160.0/build/three.module.js";
-import { OrbitControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js";
-import { PointerLockControls } from "https://unpkg.com/three@0.160.0/examples/jsm/controls/PointerLockControls.js";
 
-const houses = [
-  {
-    id: "house-1",
-    name: "Maple House",
-    neighbor: "Nina the Watchful",
-    district: 1,
-    job: "Night-shift mail sorter",
-    goal: "Keep the block in perfect order",
-    routine: "Sleeps by day, patrols the porch at night",
-    quirks: "Counts every footstep out loud",
-    puzzle: {
-      type: "sequence",
-      prompt: "Set the porch lights in the right order: 1 → 2 → 3.",
-      solution: ["1", "2", "3"],
-    },
-    items: ["Flashlight", "Keycard"],
-    hints: ["Nina listens for rhythmic footsteps.", "She trusts ordered routines."],
-  },
-  {
-    id: "house-2",
-    name: "Oak House",
-    neighbor: "Gus the Gadgeteer",
-    district: 1,
-    job: "DIY radio tinkerer",
-    goal: "Silence every squeak in the street",
-    routine: "Fixes gadgets before sunrise",
-    quirks: "Writes repair notes on napkins",
-    puzzle: {
-      type: "riddle",
-      prompt: "Which tool would silence a creaky door?",
-      options: ["Oil can", "Alarm bell", "Megaphone"],
-      solution: "Oil can",
-    },
-    items: ["Oil can", "Crumpled map"],
-    hints: ["Gus overthinks every noise.", "He appreciates quiet repairs."],
-  },
-  {
-    id: "house-3",
-    name: "Pine House",
-    neighbor: "Mara the Mapper",
-    district: 1,
-    job: "Community cartographer",
-    goal: "Plot every sound wave",
-    routine: "Logs signal data at dusk",
-    quirks: "Labels cupboards by compass direction",
-    puzzle: {
-      type: "tuner",
-      prompt: "Tune the radio slider to 60 to calm the chatter.",
-      solution: 60,
-    },
-    items: ["Radio dial", "Sticky note"],
-    hints: ["Mara is focused on frequencies.", "She likes exact numbers."],
-  },
-  {
-    id: "house-4",
-    name: "Cedar House",
-    neighbor: "Ivy the Sleeper",
-    district: 2,
-    job: "Nap schedule consultant",
-    goal: "Protect her dream journal",
-    routine: "Dozes to wind chimes at noon",
-    quirks: "Falls asleep mid-sentence",
-    puzzle: {
-      type: "code",
-      prompt: "Find the sleep routine code (3 digits).",
-      solution: "427",
-    },
-    items: ["Bedtime journal", "Wind chime"],
-    hints: ["Ivy notes her schedule in a journal.", "The chime marks each hour."],
-  },
-  {
-    id: "house-5",
-    name: "Birch House",
-    neighbor: "Theo the Gardener",
-    district: 2,
-    job: "Botanical stylist",
-    goal: "Keep the garden in bloom order",
-    routine: "Watering sprints before breakfast",
-    quirks: "Names every plant in rhyme",
-    puzzle: {
-      type: "pattern",
-      prompt: "Select the plant colors in bloom order: red → yellow → blue.",
-      solution: ["Red", "Yellow", "Blue"],
-      options: ["Blue", "Green", "Red", "Yellow"],
-    },
-    items: ["Seed pouch", "Watering can"],
-    hints: ["Theo keeps the garden in bloom order.", "He follows color patterns."],
-  },
-  {
-    id: "house-6",
-    name: "Willow House",
-    neighbor: "Rae the Storyteller",
-    district: 3,
-    job: "Late-night podcaster",
-    goal: "Gather the perfect true story",
-    routine: "Records monologues after 9 PM",
-    quirks: "Narrates footsteps like a sports game",
-    puzzle: {
-      type: "logic",
-      prompt: "Choose the true statement to calm Rae.",
-      options: [
-        "Rae was home before midnight.",
-        "The lantern was lit after 9.",
-        "Both statements are true.",
-      ],
-      solution: "The lantern was lit after 9.",
-    },
-    items: ["Lantern", "Story card"],
-    hints: ["Rae narrates every detail.", "She recalls precise timing."],
-  },
+const storyBeats = [
+  "Hours 1-6: Arrive in Metro Valley, build trust with dispatch and local crews.",
+  "Hours 7-14: Investigate the missing convoy with Pier 9 responders.",
+  "Hours 15-22: Track underground street races across the skyline expressway.",
+  "Hours 23-30: Secure the finance district during a citywide data breach.",
+  "Hours 31-38: Rally emergency teams through the first storm front.",
+  "Hours 39-46: Escort evacuees during the harbor blackout crisis.",
+  "Hours 47-54: Follow the desert airstrip trail to the rival network.",
+  "Hours 55-62: Coordinate multi-agency response in downtown lockdown.",
+  "Hours 63-70: Recover the missing convoy and expose the mastermind.",
+  "Hours 71-74: Restore the city as sunrise returns to Metro Valley.",
 ];
 
-const state = {
-  activeHouse: null,
-  solved: new Set(),
-  soundOn: true,
-  sequenceInput: [],
-  patternInput: [],
-  inventory: new Set(),
-  inventoryOrder: [],
-  selectedItemIndex: 0,
-  unlockedDistricts: 1,
-  behaviorLog: [],
-  controllerActive: false,
-  focusIndex: 0,
-  lastAxisMove: 0,
-  lastButtonPress: 0,
-};
+const tutorialSteps = [
+  { id: "move", text: "Move with WASD or left stick. Tap C to cycle camera distances." },
+  { id: "enter", text: "Press E to enter vehicles or interiors. Press E again to exit." },
+  { id: "inventory", text: "Toggle Inventory with I (or LB). Swap weapons with 1/2/3 or LB/RB." },
+  { id: "fire", text: "Use F (or Right Stick Click) to fire your equipped weapon." },
+  { id: "waypoint", text: "Click the minimap to set a waypoint and follow the route." },
+];
 
-const houseGrid = document.getElementById("house-grid");
-const puzzleArea = document.getElementById("puzzle-area");
-const alertLevel = document.getElementById("alert-level");
-const neighborsSaved = document.getElementById("neighbors-saved");
-const districtsUnlocked = document.getElementById("districts-unlocked");
-const inventoryList = document.getElementById("inventory-list");
-const behaviorFeed = document.getElementById("behavior-feed");
-const profileCard = document.getElementById("profile-card");
-const controllerStatus = document.getElementById("controller-status");
+const randomEvents = [
+  "Street racer challenges you near Harbor Loop.",
+  "A delivery drone is spiraling over Midtown.",
+  "Pop-up market blocks the avenue ahead.",
+  "Lost dog sprinting across Crosswalk 4.",
+  "Power flicker reported near the stadium.",
+  "Police escort sweeping down Main Street.",
+  "Skate crew takes over the boulevard.",
+  "Rain storm rolling in from the west ridge.",
+  "VIP convoy requests an escort.",
+  "Flash mob forming at the plaza stage.",
+];
+
 const sceneCanvas = document.getElementById("scene");
 const sceneWrap = document.getElementById("scene-wrap");
-const useItemBtn = document.getElementById("use-item-btn");
-const dropItemBtn = document.getElementById("drop-item-btn");
-const startBtn = document.getElementById("start-btn");
-const resetBtn = document.getElementById("reset-btn");
-const soundBtn = document.getElementById("sound-btn");
-const menuStartBtn = document.getElementById("menu-start-btn");
 const mainMenu = document.getElementById("main-menu");
 const loadingScreen = document.getElementById("loading-screen");
+const startBtn = document.getElementById("start-btn");
+const menuStartBtn = document.getElementById("menu-start-btn");
+const menuStoryBtn = document.getElementById("menu-story-btn");
+const menuSettingsBtn = document.getElementById("menu-settings-btn");
+const menuCreditsBtn = document.getElementById("menu-credits-btn");
+const menuSettings = document.getElementById("menu-settings");
+const settingWeather = document.getElementById("setting-weather");
+const settingNpcs = document.getElementById("setting-npcs");
+const settingTraffic = document.getElementById("setting-traffic");
+const settingClouds = document.getElementById("setting-clouds");
+const settingHud = document.getElementById("setting-hud");
+const settingsApplyBtn = document.getElementById("settings-apply-btn");
+const controllerStatus = document.getElementById("controller-status");
 const hudLocation = document.getElementById("hud-location");
 const hudMode = document.getElementById("hud-mode");
+const hudTime = document.getElementById("hud-time");
+const hudWeather = document.getElementById("hud-weather");
+const eventFeed = document.getElementById("event-feed");
+const storyList = document.getElementById("story-list");
+const tutorialList = document.getElementById("tutorial-list");
 const fullscreenBtn = document.getElementById("fullscreen-btn");
+const toggleHudBtn = document.getElementById("toggle-hud-btn");
+const toggleInventoryBtn = document.getElementById("toggle-inventory-btn");
+const toggleTutorialBtn = document.getElementById("toggle-tutorial-btn");
+const pauseBtn = document.getElementById("pause-btn");
+const hud = document.getElementById("hud");
+const storyPanel = document.getElementById("story-panel");
+const eventPanel = document.getElementById("event-panel");
+const inventoryPanel = document.getElementById("inventory-panel");
+const tutorialPanel = document.getElementById("tutorial-panel");
+const inventoryList = document.getElementById("inventory-list");
+const hudWeapon = document.getElementById("hud-weapon");
+const hudWaypoint = document.getElementById("hud-waypoint");
+const minimap = document.getElementById("minimap");
+const pauseMenu = document.getElementById("pause-menu");
+const resumeBtn = document.getElementById("resume-btn");
+const mapBtn = document.getElementById("map-btn");
+const pauseMinimap = document.getElementById("pause-minimap");
 
-let audioCtx;
-const sceneState = {
+const state = {
+  sceneReady: false,
+  timeOfDay: 17.5,
+  weatherIndex: 0,
+  weatherTimer: 0,
+  eventTimer: 0,
+  mode: "On Foot",
+  controllerActive: false,
+  playerInVehicle: null,
+  playerInPlane: false,
+  currentInterior: null,
+  hudVisible: true,
+  actionPressed: false,
+  hudPressed: false,
+  cameraPressed: false,
+  storyPressed: false,
+  storyVisible: true,
+  inventoryVisible: false,
+  tutorialVisible: true,
+  paused: false,
+  cameraIndex: 0,
+  windDirection: new THREE.Vector2(1, 0.2),
+  analogThrottle: 0,
+  weatherRate: 1,
+  npcCount: 10,
+  trafficCount: 4,
+  cloudSpeed: 1,
+  highContrastHud: false,
+  inventoryPressed: false,
+  nextWeaponPressed: false,
+  firePressed: false,
+  tutorialPressed: false,
+  pausePressed: false,
+  inventory: [
+    { name: "Sidearm", ammo: 12 },
+    { name: "SMG", ammo: 45 },
+    { name: "Shotgun", ammo: 8 },
+  ],
+  activeWeaponIndex: 0,
+  waypoint: null,
+  waypointLabel: "None",
+  tutorialProgress: new Map(),
+  npcMemory: new Map(),
+  input: {
+    forward: false,
+    backward: false,
+    left: false,
+    right: false,
+  },
+  analog: {
+    x: 0,
+    y: 0,
+  },
+};
+
+const weatherStates = [
+  { label: "Clear", fog: 0x0c1424, intensity: 1 },
+  { label: "Cloudy", fog: 0x0b111f, intensity: 0.8 },
+  { label: "Rain", fog: 0x0a0f1c, intensity: 0.6 },
+  { label: "Storm", fog: 0x090c18, intensity: 0.5 },
+];
+
+const world = {
   scene: null,
   camera: null,
   renderer: null,
-  controls: null,
-  fpControls: null,
-  fpVelocity: new THREE.Vector3(),
-  fpDirection: new THREE.Vector3(),
-  fpMove: { forward: false, backward: false, left: false, right: false },
-  houseMeshes: new Map(),
-  doorMeshes: new Map(),
-  doorTargets: new Map(),
-  ready: false,
+  sunLight: null,
+  ambientLight: null,
+  rain: null,
+  clouds: [],
+  player: null,
+  npcs: [],
+  cars: [],
+  plane: null,
+  interiors: [],
+  weaponMesh: null,
+  police: [],
+  waypointMesh: null,
+  target: new THREE.Vector3(),
+  cameraOffset: new THREE.Vector3(0, 12, 18),
+  cameraOffsets: [
+    new THREE.Vector3(0, 12, 18),
+    new THREE.Vector3(0, 8, 11),
+    new THREE.Vector3(0, 18, 26),
+  ],
 };
+const clock = new THREE.Clock();
+let audioCtx;
+let musicGain;
+let ambienceGain;
 
-function initScene() {
-  if (!sceneCanvas) return;
-  const width = sceneCanvas.clientWidth;
-  const height = sceneCanvas.clientHeight;
-
-  sceneState.scene = new THREE.Scene();
-  sceneState.scene.background = new THREE.Color("#0b0f1f");
-
-  sceneState.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 200);
-  sceneState.camera.position.set(0, 12, 16);
-
-  sceneState.renderer = new THREE.WebGLRenderer({ canvas: sceneCanvas, antialias: true });
-  sceneState.renderer.setPixelRatio(window.devicePixelRatio || 1);
-  sceneState.renderer.setSize(width, height, false);
-
-  sceneState.controls = new OrbitControls(sceneState.camera, sceneCanvas);
-  sceneState.controls.enableDamping = true;
-  sceneState.controls.target.set(0, 2, 0);
-
-  sceneState.fpControls = new PointerLockControls(sceneState.camera, sceneCanvas);
-  sceneState.fpControls.addEventListener("lock", () => {
-    if (hudMode) hudMode.textContent = "First-Person";
-    if (sceneState.controls) sceneState.controls.enabled = false;
-  });
-  sceneState.fpControls.addEventListener("unlock", () => {
-    if (hudMode) hudMode.textContent = "Third-Person";
-    if (sceneState.controls) sceneState.controls.enabled = true;
-  });
-
-  const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-  const directional = new THREE.DirectionalLight(0xfff0d6, 0.8);
-  directional.position.set(8, 12, 6);
-  sceneState.scene.add(ambient, directional);
-
-  const groundGeometry = new THREE.PlaneGeometry(30, 30);
-  const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0x1a2038,
-    roughness: 0.9,
-    metalness: 0.1,
-  });
-  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-  ground.rotation.x = -Math.PI / 2;
-  sceneState.scene.add(ground);
-
-  const streetGeometry = new THREE.PlaneGeometry(24, 4);
-  const streetMaterial = new THREE.MeshStandardMaterial({ color: 0x2a324f });
-  const street = new THREE.Mesh(streetGeometry, streetMaterial);
-  street.rotation.x = -Math.PI / 2;
-  street.position.y = 0.01;
-  sceneState.scene.add(street);
-
-  buildHouseMeshes();
-  updateHouseHighlights();
-  animateScene();
-  sceneState.ready = true;
-  stopLoading();
-
-  window.addEventListener("resize", handleSceneResize);
-}
-
-function buildHouseMeshes() {
-  sceneState.houseMeshes.clear();
-  sceneState.doorMeshes.clear();
-  const rowSpacing = 6;
-  const columnSpacing = 6;
-  houses.forEach((house, index) => {
-    const geometry = new THREE.BoxGeometry(2.4, 2.4, 2.4);
-    const material = new THREE.MeshStandardMaterial({ color: 0x3d4b70 });
-    const mesh = new THREE.Mesh(geometry, material);
-    const row = Math.floor(index / 3);
-    const column = index % 3;
-    mesh.position.set(-6 + column * columnSpacing, 1.2, -4 + row * rowSpacing);
-    mesh.userData.houseId = house.id;
-    sceneState.scene.add(mesh);
-    sceneState.houseMeshes.set(house.id, mesh);
-
-    const doorGeometry = new THREE.BoxGeometry(0.5, 1.4, 0.1);
-    const doorMaterial = new THREE.MeshStandardMaterial({ color: 0x6b4b3e });
-    const door = new THREE.Mesh(doorGeometry, doorMaterial);
-    door.position.set(mesh.position.x + 1.2, 0.7, mesh.position.z + 1.25);
-    door.userData.houseId = house.id;
-    sceneState.scene.add(door);
-    sceneState.doorMeshes.set(house.id, door);
-    sceneState.doorTargets.set(house.id, 0);
-
-    const roofGeometry = new THREE.ConeGeometry(1.9, 1.4, 4);
-    const roofMaterial = new THREE.MeshStandardMaterial({ color: 0x2a2f45 });
-    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
-    roof.position.set(mesh.position.x, 2.9, mesh.position.z);
-    roof.rotation.y = Math.PI / 4;
-    sceneState.scene.add(roof);
+function initStoryList() {
+  storyList.innerHTML = "";
+  storyBeats.forEach((beat, index) => {
+    const item = document.createElement("li");
+    item.textContent = beat;
+    if (index === 0) {
+      item.style.color = "#fff";
+    }
+    storyList.appendChild(item);
   });
 }
 
-function updateHouseHighlights() {
-  sceneState.houseMeshes.forEach((mesh, houseId) => {
-    const house = houses.find((entry) => entry.id === houseId);
-    if (!house) return;
-    const solved = state.solved.has(houseId);
-    const isActive = state.activeHouse?.id === houseId;
-    const baseColor = solved ? 0x4cc99f : 0x3d4b70;
-    const highlightColor = isActive ? 0xffb347 : baseColor;
-    mesh.material.color.setHex(highlightColor);
+function initTutorial() {
+  if (!tutorialList) return;
+  tutorialList.innerHTML = "";
+  tutorialSteps.forEach((step) => {
+    const item = document.createElement("li");
+    item.textContent = step.text;
+    item.dataset.step = step.id;
+    tutorialList.appendChild(item);
   });
 }
 
-function handleSceneResize() {
-  if (!sceneState.renderer || !sceneState.camera) return;
-  const width = sceneCanvas.clientWidth;
-  const height = sceneCanvas.clientHeight;
-  sceneState.camera.aspect = width / height;
-  sceneState.camera.updateProjectionMatrix();
-  sceneState.renderer.setSize(width, height, false);
+function updateTutorialStep(id, completed) {
+  const item = tutorialList?.querySelector(`[data-step=\"${id}\"]`);
+  if (!item) return;
+  item.classList.toggle("completed", completed);
+  state.tutorialProgress.set(id, completed);
 }
 
-function animateScene() {
-  if (!sceneState.renderer || !sceneState.scene || !sceneState.camera) return;
-  requestAnimationFrame(animateScene);
-  sceneState.controls?.update();
-  updateDoors();
-  updateFirstPerson();
-  sceneState.renderer.render(sceneState.scene, sceneState.camera);
+function updateWaypointLabel() {
+  hudWaypoint.textContent = state.waypointLabel || "None";
 }
 
-function updateDoors() {
-  sceneState.doorMeshes.forEach((door, houseId) => {
-    const target = sceneState.doorTargets.get(houseId) || 0;
-    door.rotation.y += (target - door.rotation.y) * 0.1;
-  });
-}
-
-function openDoor(houseId) {
-  sceneState.doorTargets.set(houseId, -Math.PI / 2);
-}
-
-function closeDoor(houseId) {
-  sceneState.doorTargets.set(houseId, 0);
-}
-
-function startLoading(message = "Loading neighborhood...") {
-  if (!loadingScreen) return;
-  loadingScreen.querySelector("p").textContent = message;
-  loadingScreen.classList.remove("hidden");
-}
-
-function stopLoading() {
-  loadingScreen?.classList.add("hidden");
-}
-
-function ensureAudio() {
-  if (!audioCtx) {
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+function setWaypoint(position, label = "Custom Marker") {
+  state.waypoint = position.clone();
+  state.waypointLabel = label;
+  updateWaypointLabel();
+  updateTutorialStep("waypoint", true);
+  if (!world.waypointMesh) {
+    const marker = new THREE.Mesh(
+      new THREE.ConeGeometry(0.6, 2, 6),
+      new THREE.MeshStandardMaterial({ color: 0xffb347 }),
+    );
+    marker.castShadow = true;
+    world.scene.add(marker);
+    world.waypointMesh = marker;
   }
-  if (audioCtx.state === "suspended") {
-    audioCtx.resume();
+  world.waypointMesh.position.set(position.x, 1.2, position.z);
+}
+
+function drawMinimap(canvas) {
+  if (!canvas) return;
+  const context = canvas.getContext("2d");
+  if (!context) return;
+  const size = canvas.width;
+  context.clearRect(0, 0, size, size);
+  context.fillStyle = "#0b0f1f";
+  context.fillRect(0, 0, size, size);
+  context.strokeStyle = "#2a324f";
+  context.strokeRect(8, 8, size - 16, size - 16);
+
+  const scale = (size - 20) / 220;
+  const offset = size / 2;
+
+  context.fillStyle = "#4fd2ff";
+  context.beginPath();
+  context.arc(offset + world.target.x * scale, offset + world.target.z * scale, 4, 0, Math.PI * 2);
+  context.fill();
+
+  if (state.waypoint) {
+    context.fillStyle = "#ffb347";
+    context.beginPath();
+    context.arc(offset + state.waypoint.x * scale, offset + state.waypoint.z * scale, 4, 0, Math.PI * 2);
+    context.fill();
   }
 }
 
-function playTone(frequency, duration = 0.2) {
-  if (!state.soundOn) return;
-  ensureAudio();
-  const oscillator = audioCtx.createOscillator();
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new AudioContext();
+  musicGain = audioCtx.createGain();
+  ambienceGain = audioCtx.createGain();
+  musicGain.gain.value = 0.12;
+  ambienceGain.gain.value = 0.08;
+  musicGain.connect(audioCtx.destination);
+  ambienceGain.connect(audioCtx.destination);
+
+  const musicOsc = audioCtx.createOscillator();
+  musicOsc.type = "sine";
+  musicOsc.frequency.value = 196;
+  musicOsc.connect(musicGain);
+  musicOsc.start();
+
+  const ambienceOsc = audioCtx.createOscillator();
+  ambienceOsc.type = "triangle";
+  ambienceOsc.frequency.value = 80;
+  ambienceOsc.connect(ambienceGain);
+  ambienceOsc.start();
+}
+
+function playSfx(frequency = 440, duration = 0.08) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  oscillator.type = "triangle";
-  oscillator.frequency.value = frequency;
-  gain.gain.value = 0.15;
-  oscillator.connect(gain);
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+  osc.connect(gain);
   gain.connect(audioCtx.destination);
-  oscillator.start();
-  oscillator.stop(audioCtx.currentTime + duration);
-}
-
-function updateStatus() {
-  if (!alertLevel || !neighborsSaved || !districtsUnlocked) return;
-  const solvedCount = state.solved.size;
-  neighborsSaved.textContent = `${solvedCount}`;
-  districtsUnlocked.textContent = `${state.unlockedDistricts}`;
-
-  if (solvedCount === 0) {
-    alertLevel.textContent = "Calm";
-    alertLevel.style.color = "var(--success)";
-  } else if (solvedCount < houses.length) {
-    alertLevel.textContent = "Alert";
-    alertLevel.style.color = "var(--accent)";
-  } else {
-    alertLevel.textContent = "Safe";
-    alertLevel.style.color = "var(--success)";
-  }
-}
-
-function updateUnlockedDistricts() {
-  const solvedCount = state.solved.size;
-  if (solvedCount >= 2) state.unlockedDistricts = 2;
-  if (solvedCount >= 4) state.unlockedDistricts = 3;
-}
-
-function renderHouses() {
-  if (!houseGrid) return;
-  houseGrid.innerHTML = "";
-  houses.forEach((house) => {
-    const card = document.createElement("div");
-    card.className = "house-card";
-    card.dataset.house = house.id;
-
-    const isUnlocked = house.district <= state.unlockedDistricts;
-    if (!isUnlocked) {
-      card.classList.add("locked");
-    }
-
-    if (state.activeHouse?.id === house.id) {
-      card.classList.add("active");
-    }
-
-    const statusBadge = document.createElement("span");
-    const solved = state.solved.has(house.id);
-    if (!isUnlocked) {
-      statusBadge.className = "badge locked";
-      statusBadge.textContent = "Locked";
-    } else {
-      statusBadge.className = `badge ${solved ? "safe" : ""}`;
-      statusBadge.textContent = solved ? "Secured" : "Suspicious";
-    }
-
-    const title = document.createElement("h3");
-    title.textContent = house.name;
-
-    const neighbor = document.createElement("p");
-    neighbor.textContent = `Neighbor: ${house.neighbor}`;
-
-    const role = document.createElement("p");
-    role.className = "muted";
-    role.textContent = `Job: ${house.job}`;
-
-    const district = document.createElement("p");
-    district.className = "muted";
-    district.textContent = `District ${house.district}`;
-
-    const action = document.createElement("button");
-    action.className = "primary";
-    action.textContent = solved ? "Revisit" : "Enter";
-    action.disabled = !isUnlocked;
-    action.addEventListener("click", () => selectHouse(house));
-
-    card.append(statusBadge, title, neighbor, role, district, action);
-    houseGrid.appendChild(card);
-  });
-
-  syncFocusableElements();
+  osc.start();
+  osc.stop(audioCtx.currentTime + duration);
 }
 
 function renderInventory() {
   if (!inventoryList) return;
   inventoryList.innerHTML = "";
-  if (state.inventory.size === 0) {
-    const item = document.createElement("li");
-    item.textContent = "No items collected yet.";
-    inventoryList.appendChild(item);
-    return;
-  }
-  state.inventoryOrder = Array.from(state.inventory);
-  if (state.selectedItemIndex >= state.inventoryOrder.length) {
-    state.selectedItemIndex = 0;
-  }
-  state.inventoryOrder.forEach((itemName, index) => {
-    const item = document.createElement("li");
-    item.textContent = itemName;
-    if (index === state.selectedItemIndex) {
-      item.classList.add("selected");
+  state.inventory.forEach((item, index) => {
+    const row = document.createElement("li");
+    row.textContent = `${item.name} • ${item.ammo} rounds`;
+    if (index === state.activeWeaponIndex) {
+      row.classList.add("active");
+      hudWeapon.textContent = item.name;
     }
-    item.addEventListener("click", () => {
-      state.selectedItemIndex = index;
-      renderInventory();
-    });
-    inventoryList.appendChild(item);
+    inventoryList.appendChild(row);
   });
 }
 
-function pushBehaviorLog(text) {
-  state.behaviorLog.unshift(text);
-  state.behaviorLog = state.behaviorLog.slice(0, 6);
-  renderBehaviorFeed();
+function pushEvent(message) {
+  const item = document.createElement("li");
+  item.textContent = message;
+  eventFeed.prepend(item);
+  while (eventFeed.children.length > 5) {
+    eventFeed.removeChild(eventFeed.lastChild);
+  }
 }
 
-function selectHouse(house) {
-  state.activeHouse = house;
-  state.sequenceInput = [];
-  state.patternInput = [];
-  renderHouses();
-  renderPuzzle(house);
-  renderProfile(house);
-  updateHouseHighlights();
-  pushBehaviorLog(`${house.neighbor} is currently focused on: ${house.goal}.`);
-  if (hudLocation) hudLocation.textContent = house.name;
-  openDoor(house.id);
-  startLoading(`Entering ${house.name}...`);
-  setTimeout(stopLoading, 600);
-  playTone(440, 0.15);
+function showLoading() {
+  loadingScreen.classList.remove("hidden");
 }
 
-function renderProfile(house) {
-  if (!profileCard) return;
-  if (!house) {
-    profileCard.innerHTML = "<p class=\"muted\">Select a house to view the neighbor's life, job, and goals.</p>";
-    return;
+function hideLoading() {
+  loadingScreen.classList.add("hidden");
+}
+
+function toggleMenuSettings() {
+  menuSettings.classList.toggle("hidden");
+}
+
+function applySettings() {
+  state.weatherRate = Number(settingWeather.value);
+  state.npcCount = Number(settingNpcs.value);
+  state.trafficCount = Number(settingTraffic.value);
+  state.cloudSpeed = Number(settingClouds.value);
+  state.highContrastHud = settingHud.checked;
+  hud.classList.toggle("high-contrast", state.highContrastHud);
+  renderInventory();
+  if (state.sceneReady) {
+    buildNPCs();
+    buildCars();
+    buildPolice();
+  }
+}
+
+function initScene() {
+  if (!sceneCanvas) return;
+  if (state.sceneReady) return;
+  showLoading();
+
+  const width = sceneCanvas.clientWidth;
+  const height = sceneCanvas.clientHeight;
+
+  world.scene = new THREE.Scene();
+  world.scene.background = new THREE.Color(0x0c1424);
+  world.scene.fog = new THREE.Fog(0x0c1424, 30, 160);
+
+  world.camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 500);
+  world.camera.position.set(0, 14, 20);
+
+  world.renderer = new THREE.WebGLRenderer({ canvas: sceneCanvas, antialias: true });
+  world.renderer.setPixelRatio(window.devicePixelRatio || 1);
+  world.renderer.setSize(width, height, false);
+  world.renderer.shadowMap.enabled = true;
+  world.renderer.physicallyCorrectLights = true;
+  world.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  world.renderer.toneMappingExposure = 1.1;
+
+  world.ambientLight = new THREE.AmbientLight(0xbad4ff, 0.4);
+  const hemiLight = new THREE.HemisphereLight(0x7fb7ff, 0x0b1020, 0.6);
+  world.scene.add(hemiLight);
+  world.sunLight = new THREE.DirectionalLight(0xfff4dd, 1.1);
+  world.sunLight.position.set(30, 40, 20);
+  world.sunLight.castShadow = true;
+  world.scene.add(world.ambientLight, world.sunLight);
+
+  const groundGeometry = new THREE.PlaneGeometry(220, 220);
+  const groundMaterial = new THREE.MeshStandardMaterial({ color: 0x0f1728, roughness: 0.9 });
+  const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+  ground.rotation.x = -Math.PI / 2;
+  ground.receiveShadow = true;
+  world.scene.add(ground);
+
+  buildRoads();
+  buildBuildings();
+  buildCityProps();
+  buildEnterableBuildings();
+  buildPlayer();
+  buildNPCs();
+  buildPolice();
+  buildCars();
+  buildPlane();
+  buildClouds();
+  buildRain();
+  renderInventory();
+  initTutorial();
+  updateWaypointLabel();
+  initAudio();
+
+  window.addEventListener("resize", handleResize);
+  sceneCanvas.addEventListener("click", () => sceneCanvas.focus());
+
+  state.sceneReady = true;
+  hideLoading();
+  animate();
+}
+
+function buildRoads() {
+  const roadMaterial = new THREE.MeshStandardMaterial({ color: 0x1c2738, roughness: 0.8 });
+  for (let i = -2; i <= 2; i += 1) {
+    const road = new THREE.Mesh(new THREE.PlaneGeometry(220, 6), roadMaterial);
+    road.rotation.x = -Math.PI / 2;
+    road.position.z = i * 20;
+    road.receiveShadow = true;
+    world.scene.add(road);
+
+    if (i !== 0) {
+      const crossRoad = new THREE.Mesh(new THREE.PlaneGeometry(6, 220), roadMaterial);
+      crossRoad.rotation.x = -Math.PI / 2;
+      crossRoad.position.x = i * 20;
+      crossRoad.receiveShadow = true;
+      world.scene.add(crossRoad);
+    }
+  }
+}
+
+function buildBuildings() {
+  const buildingMaterial = new THREE.MeshStandardMaterial({ color: 0x2c3a52, roughness: 0.6, metalness: 0.1 });
+  for (let x = -80; x <= 80; x += 20) {
+    for (let z = -80; z <= 80; z += 20) {
+      if (Math.abs(x) < 12 || Math.abs(z) < 12) continue;
+      const height = 8 + Math.random() * 20;
+      const geometry = new THREE.BoxGeometry(10, height, 10);
+      const building = new THREE.Mesh(geometry, buildingMaterial.clone());
+      building.material.color.setHSL(0.6, 0.35, 0.22 + Math.random() * 0.25);
+      building.position.set(x + (Math.random() * 6 - 3), height / 2, z + (Math.random() * 6 - 3));
+      building.castShadow = true;
+      building.receiveShadow = true;
+      world.scene.add(building);
+
+      const roof = new THREE.Mesh(new THREE.ConeGeometry(6, 3, 4), new THREE.MeshStandardMaterial({ color: 0x1b243a }));
+      roof.position.set(building.position.x, height + 1, building.position.z);
+      roof.rotation.y = Math.random() * Math.PI;
+      roof.castShadow = true;
+      world.scene.add(roof);
+    }
+  }
+}
+
+function buildCityProps() {
+  const lampMaterial = new THREE.MeshStandardMaterial({ color: 0x2e3a55, roughness: 0.6 });
+  const lampHeadMaterial = new THREE.MeshStandardMaterial({ color: 0xffd28a, emissive: 0xffd28a, emissiveIntensity: 0.6 });
+  for (let i = -90; i <= 90; i += 30) {
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 6), lampMaterial);
+    pole.position.set(i, 3, -15);
+    world.scene.add(pole);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), lampHeadMaterial);
+    head.position.set(i, 6, -15);
+    world.scene.add(head);
   }
 
-  profileCard.innerHTML = `
-    <p><strong>${house.neighbor}</strong> (${house.name})</p>
-    <p><strong>Job:</strong> ${house.job}</p>
-    <p><strong>Goal:</strong> ${house.goal}</p>
-    <p><strong>Routine:</strong> ${house.routine}</p>
-    <p><strong>Quirk:</strong> ${house.quirks}</p>
-  `;
+  const park = new THREE.Mesh(new THREE.CircleGeometry(12, 24), new THREE.MeshStandardMaterial({ color: 0x163020 }));
+  park.rotation.x = -Math.PI / 2;
+  park.position.set(40, 0.02, 40);
+  world.scene.add(park);
+
+  const plaza = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), new THREE.MeshStandardMaterial({ color: 0x202a3f }));
+  plaza.rotation.x = -Math.PI / 2;
+  plaza.position.set(-30, 0.02, 50);
+  world.scene.add(plaza);
 }
 
-function renderPuzzle(house) {
-  if (!puzzleArea) return;
-  puzzleArea.innerHTML = "";
-
-  const heading = document.createElement("h3");
-  heading.textContent = `${house.name} Interior`;
-
-  const prompt = document.createElement("p");
-  prompt.textContent = house.puzzle.prompt;
-
-  const hint = document.createElement("p");
-  hint.className = "muted";
-  hint.textContent = house.hints[0];
-
-  const interiorTitle = document.createElement("h4");
-  interiorTitle.textContent = "Interior Items";
-
-  const interior = document.createElement("div");
-  interior.className = "interior-grid";
-  house.items.forEach((itemName) => {
-    const btn = document.createElement("button");
-    const collected = state.inventory.has(itemName);
-    btn.className = `item-button ${collected ? "collected" : ""}`;
-    btn.textContent = collected ? `${itemName} ✓` : `Pick up ${itemName}`;
-    btn.disabled = collected;
-    btn.addEventListener("click", () => {
-      state.inventory.add(itemName);
-      if (!state.inventoryOrder.includes(itemName)) {
-        state.inventoryOrder.push(itemName);
-      }
-      btn.classList.add("collected");
-      btn.textContent = `${itemName} ✓`;
-      btn.disabled = true;
-      renderInventory();
-      playTone(520, 0.1);
-      pushBehaviorLog(`Picked up ${itemName}. ${house.neighbor} reacts to the movement.`);
-    });
-    interior.appendChild(btn);
+function clearInteriors() {
+  world.interiors.forEach((interior) => {
+    world.scene.remove(interior.exterior);
+    world.scene.remove(interior.door);
+    world.scene.remove(interior.interiorGroup);
   });
-
-  puzzleArea.append(heading, prompt, hint, interiorTitle, interior);
-
-  if (house.puzzle.type === "sequence") {
-    const sequenceInfo = document.createElement("p");
-    sequenceInfo.className = "muted";
-    sequenceInfo.textContent = `Current sequence: ${state.sequenceInput.join("-") || ""}`;
-
-    const controls = document.createElement("div");
-    controls.className = "puzzle-controls";
-
-    ["1", "2", "3"].forEach((value) => {
-      const btn = document.createElement("button");
-      btn.className = "puzzle-button";
-      btn.textContent = value;
-      btn.addEventListener("click", () => handleSequence(value, sequenceInfo, house));
-      controls.appendChild(btn);
-    });
-
-    puzzleArea.append(sequenceInfo, controls);
-  }
-
-  if (house.puzzle.type === "riddle") {
-    const controls = document.createElement("div");
-    controls.className = "puzzle-controls";
-
-    house.puzzle.options.forEach((option) => {
-      const btn = document.createElement("button");
-      btn.className = "puzzle-button";
-      btn.textContent = option;
-      btn.addEventListener("click", () => handleRiddle(btn, option, house));
-      controls.appendChild(btn);
-    });
-
-    puzzleArea.append(controls);
-  }
-
-  if (house.puzzle.type === "tuner") {
-    const slider = document.createElement("input");
-    slider.type = "range";
-    slider.min = "30";
-    slider.max = "90";
-    slider.value = "45";
-    slider.className = "tuner";
-
-    const readout = document.createElement("p");
-    readout.className = "muted";
-    readout.textContent = `Frequency: ${slider.value}`;
-
-    slider.addEventListener("input", () => {
-      readout.textContent = `Frequency: ${slider.value}`;
-      playTone(300 + Number(slider.value), 0.05);
-    });
-
-    const confirm = document.createElement("button");
-    confirm.className = "primary";
-    confirm.textContent = "Lock Frequency";
-    confirm.addEventListener("click", () => handleTuner(slider, house, readout));
-
-    puzzleArea.append(readout, slider, confirm);
-  }
-
-  if (house.puzzle.type === "code") {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.maxLength = 3;
-    input.placeholder = "Enter 3-digit code";
-    input.className = "tuner";
-
-    const confirm = document.createElement("button");
-    confirm.className = "primary";
-    confirm.textContent = "Unlock Routine";
-    confirm.addEventListener("click", () => handleCode(input, house));
-
-    puzzleArea.append(input, confirm);
-  }
-
-  if (house.puzzle.type === "pattern") {
-    const status = document.createElement("p");
-    status.className = "muted";
-    status.textContent = "Current selection: ";
-
-    const controls = document.createElement("div");
-    controls.className = "puzzle-controls";
-
-    house.puzzle.options.forEach((option) => {
-      const btn = document.createElement("button");
-      btn.className = "puzzle-button";
-      btn.textContent = option;
-      btn.addEventListener("click", () => handlePattern(option, status, house));
-      controls.appendChild(btn);
-    });
-
-    puzzleArea.append(status, controls);
-  }
-
-  if (house.puzzle.type === "logic") {
-    const controls = document.createElement("div");
-    controls.className = "puzzle-controls";
-
-    house.puzzle.options.forEach((option) => {
-      const btn = document.createElement("button");
-      btn.className = "puzzle-button";
-      btn.textContent = option;
-      btn.addEventListener("click", () => handleLogic(btn, option, house));
-      controls.appendChild(btn);
-    });
-
-    const note = document.createElement("p");
-    note.className = "muted";
-    note.textContent = house.hints[1];
-
-    puzzleArea.append(controls, note);
-  }
-
-  if (state.solved.has(house.id)) {
-    const solvedMsg = document.createElement("p");
-    solvedMsg.className = "muted";
-    solvedMsg.textContent = "This neighbor is calm. You can replay the puzzle for fun.";
-    puzzleArea.appendChild(solvedMsg);
-  }
-
-  syncFocusableElements();
+  world.interiors.length = 0;
 }
 
-function handleSequence(value, display, house) {
-  state.sequenceInput.push(value);
-  display.textContent = `Current sequence: ${state.sequenceInput.join("-")}`;
-  playTone(520, 0.08);
+function buildEnterableBuildings() {
+  clearInteriors();
+  const shopMaterial = new THREE.MeshStandardMaterial({ color: 0x3b4f6d, roughness: 0.6 });
+  const interiorFloorMaterial = new THREE.MeshStandardMaterial({ color: 0x1b243a, roughness: 0.9 });
+  const interiorWallMaterial = new THREE.MeshStandardMaterial({ color: 0x2b354d, roughness: 0.8 });
 
-  if (state.sequenceInput.length === house.puzzle.solution.length) {
-    const correct = state.sequenceInput.every((entry, index) => entry === house.puzzle.solution[index]);
-    if (correct) {
-      resolveHouse(house, "Sequence locked. Porch is secure.");
-    } else {
-      state.sequenceInput = [];
-      display.textContent = "Sequence reset. Try again.";
-      playTone(200, 0.3);
-    }
-  }
-}
-
-function handleRiddle(button, option, house) {
-  if (option === house.puzzle.solution) {
-    button.classList.add("correct");
-    resolveHouse(house, "Correct tool! Door silence achieved.");
-  } else {
-    button.classList.add("wrong");
-    playTone(180, 0.3);
-  }
-}
-
-function handleTuner(slider, house, readout) {
-  const current = Number(slider.value);
-  if (current === house.puzzle.solution) {
-    resolveHouse(house, "Frequency locked. The chatter fades.");
-  } else {
-    playTone(180, 0.3);
-    readout.textContent = "Frequency off. Try closer to 60.";
-  }
-}
-
-function handleCode(input, house) {
-  if (input.value.trim() === house.puzzle.solution) {
-    resolveHouse(house, "Routine unlocked. Ivy is asleep.");
-  } else {
-    playTone(180, 0.3);
-    input.value = "";
-  }
-}
-
-function handlePattern(option, status, house) {
-  state.patternInput.push(option);
-  status.textContent = `Current selection: ${state.patternInput.join(" → ")}`;
-  playTone(480, 0.08);
-
-  if (state.patternInput.length === house.puzzle.solution.length) {
-    const correct = state.patternInput.every((entry, index) => entry === house.puzzle.solution[index]);
-    if (correct) {
-      resolveHouse(house, "Garden sequence set. Theo relaxes.");
-    } else {
-      state.patternInput = [];
-      status.textContent = "Pattern reset. Try again.";
-      playTone(200, 0.3);
-    }
-  }
-}
-
-function handleLogic(button, option, house) {
-  if (option === house.puzzle.solution) {
-    button.classList.add("correct");
-    resolveHouse(house, "Rae is satisfied with the truth.");
-  } else {
-    button.classList.add("wrong");
-    playTone(180, 0.3);
-  }
-}
-
-function resolveHouse(house, message) {
-  state.solved.add(house.id);
-  updateUnlockedDistricts();
-  playTone(700, 0.2);
-  const feedback = document.createElement("p");
-  feedback.textContent = message;
-  feedback.className = "muted";
-  puzzleArea?.appendChild(feedback);
-  updateStatus();
-  renderHouses();
-  updateHouseHighlights();
-  pushBehaviorLog(`${house.neighbor} calms down after the puzzle. They head back to their ${house.job}.`);
-  closeDoor(house.id);
-}
-
-function resetGame() {
-  state.activeHouse = null;
-  state.solved.clear();
-  state.sequenceInput = [];
-  state.patternInput = [];
-  state.inventory.clear();
-  state.inventoryOrder = [];
-  state.selectedItemIndex = 0;
-  state.unlockedDistricts = 1;
-  state.behaviorLog = [];
-  if (puzzleArea) {
-    puzzleArea.innerHTML = "<h3>Puzzle Console</h3><p class=\"muted\">Select a house to enter its interior and investigate clues.</p>";
-  }
-  updateStatus();
-  renderHouses();
-  renderInventory();
-  renderBehaviorFeed();
-  renderProfile(null);
-  if (hudLocation) hudLocation.textContent = "Street";
-  updateHouseHighlights();
-}
-
-function useSelectedItem() {
-  if (state.inventoryOrder.length === 0) return;
-  const itemName = state.inventoryOrder[state.selectedItemIndex];
-  if (!itemName) return;
-  const context = state.activeHouse ? ` near ${state.activeHouse.name}` : " on the street";
-  pushBehaviorLog(`You used ${itemName}${context}. The neighborhood feels different.`);
-  playTone(640, 0.15);
-}
-
-function dropSelectedItem() {
-  if (state.inventoryOrder.length === 0) return;
-  const itemName = state.inventoryOrder[state.selectedItemIndex];
-  state.inventory.delete(itemName);
-  state.inventoryOrder.splice(state.selectedItemIndex, 1);
-  state.selectedItemIndex = Math.max(0, state.selectedItemIndex - 1);
-  renderInventory();
-  pushBehaviorLog(`Dropped ${itemName}. It might be useful later.`);
-}
-
-function renderBehaviorFeed() {
-  if (!behaviorFeed) return;
-  behaviorFeed.innerHTML = "";
-  if (state.behaviorLog.length === 0) {
-    const li = document.createElement("li");
-    li.textContent = "Neighbors are quiet for now.";
-    behaviorFeed.appendChild(li);
-  } else {
-    state.behaviorLog.forEach((entry) => {
-      const li = document.createElement("li");
-      li.textContent = entry;
-      behaviorFeed.appendChild(li);
-    });
-  }
-}
-
-function tickBehaviors() {
-  const house = houses[Math.floor(Math.random() * houses.length)];
-  const hint = house.hints[Math.floor(Math.random() * house.hints.length)];
-  const goals = [
-    `${house.neighbor} is working on: ${house.goal}.`,
-    `${house.neighbor} is heading to their ${house.job}.`,
-    `${house.neighbor} mutters: "${house.quirks}"`,
+  const buildings = [
+    { name: "Corner Shop", position: new THREE.Vector3(40, 0, -40) },
+    { name: "Skyline Cafe", position: new THREE.Vector3(-50, 0, 40) },
+    { name: "Metro Outfitters", position: new THREE.Vector3(-60, 0, -10) },
+    { name: "Harbor Market", position: new THREE.Vector3(60, 0, 30) },
+    { name: "Central Clinic", position: new THREE.Vector3(20, 0, 60) },
+    { name: "Tech Office", position: new THREE.Vector3(-20, 0, -60) },
+    { name: "Riverside Diner", position: new THREE.Vector3(-70, 0, 20) },
+    { name: "Auto Garage", position: new THREE.Vector3(70, 0, -20) },
   ];
-  pushBehaviorLog(goals[Math.floor(Math.random() * goals.length)] || hint);
+
+  buildings.forEach((building) => {
+    const exterior = new THREE.Mesh(new THREE.BoxGeometry(10, 6, 10), shopMaterial.clone());
+    exterior.position.set(building.position.x, 3, building.position.z);
+    exterior.castShadow = true;
+    exterior.receiveShadow = true;
+    world.scene.add(exterior);
+
+    const door = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2.5, 0.3), new THREE.MeshStandardMaterial({ color: 0x4fd2ff }));
+    door.position.set(building.position.x, 1.25, building.position.z + 5.1);
+    door.userData = { type: "door", building };
+    world.scene.add(door);
+
+    const interiorGroup = new THREE.Group();
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), interiorFloorMaterial);
+    floor.rotation.x = -Math.PI / 2;
+    interiorGroup.add(floor);
+
+    const backWall = new THREE.Mesh(new THREE.BoxGeometry(10, 4, 0.4), interiorWallMaterial);
+    backWall.position.set(0, 2, -5);
+    interiorGroup.add(backWall);
+
+    const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 10), interiorWallMaterial);
+    leftWall.position.set(-5, 2, 0);
+    interiorGroup.add(leftWall);
+
+    const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.4, 4, 10), interiorWallMaterial);
+    rightWall.position.set(5, 2, 0);
+    interiorGroup.add(rightWall);
+
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(4, 1, 1.5), new THREE.MeshStandardMaterial({ color: 0x5b6b85 }));
+    counter.position.set(0, 0.5, -2);
+    interiorGroup.add(counter);
+
+    const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.2, 3, 0.6), new THREE.MeshStandardMaterial({ color: 0x7a8ab0 }));
+    shelf.position.set(-3, 1.5, 2);
+    interiorGroup.add(shelf);
+
+    const light = new THREE.PointLight(0x8bd8ff, 0.9, 25);
+    light.position.set(0, 3.5, 0);
+    interiorGroup.add(light);
+
+    interiorGroup.position.set(building.position.x, 0.05, building.position.z);
+    interiorGroup.visible = false;
+    world.scene.add(interiorGroup);
+
+    world.interiors.push({
+      name: building.name,
+      exterior,
+      door,
+      interiorGroup,
+      entryPoint: new THREE.Vector3(building.position.x, 1.2, building.position.z + 1.5),
+      exitPoint: new THREE.Vector3(building.position.x, 1.2, building.position.z + 6),
+    });
+  });
 }
 
-const focusState = {
-  elements: [],
-};
+function buildPlayer() {
+  const player = new THREE.Group();
+  const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0x4fd2ff, roughness: 0.4, metalness: 0.2 });
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(1, 2, 4, 8), bodyMaterial);
+  body.castShadow = true;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.5, 16, 16), new THREE.MeshStandardMaterial({ color: 0xffd9c9 }));
+  head.position.set(0, 1.6, 0);
+  head.castShadow = true;
+  player.add(body, head);
+  player.position.set(0, 2, 0);
+  world.scene.add(player);
+  world.player = player;
 
-function syncFocusableElements() {
-  focusState.elements = Array.from(document.querySelectorAll("button, input[type='range'], input[type='text']")).filter(
-    (el) => !el.disabled
-  );
-  if (focusState.elements.length === 0) return;
-  if (state.focusIndex >= focusState.elements.length) {
-    state.focusIndex = 0;
+  const weaponGeometry = new THREE.BoxGeometry(0.6, 0.2, 1.2);
+  const weaponMaterial = new THREE.MeshStandardMaterial({ color: 0x2c344a, metalness: 0.3, roughness: 0.4 });
+  const weapon = new THREE.Mesh(weaponGeometry, weaponMaterial);
+  weapon.position.set(0.6, 1.6, 0.8);
+  weapon.castShadow = true;
+  world.scene.add(weapon);
+  world.weaponMesh = weapon;
+}
+
+function clearMeshes(meshes) {
+  meshes.forEach((mesh) => {
+    world.scene.remove(mesh);
+  });
+  meshes.length = 0;
+}
+
+function buildNPCs() {
+  clearMeshes(world.npcs);
+  for (let i = 0; i < state.npcCount; i += 1) {
+    const npc = new THREE.Group();
+    const bodyMaterial = new THREE.MeshStandardMaterial({ color: 0xffb347, roughness: 0.5, metalness: 0.1 });
+    const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.7, 1.5, 4, 8), bodyMaterial);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 12), new THREE.MeshStandardMaterial({ color: 0xf2c7a0 }));
+    head.position.set(0, 1.2, 0);
+    npc.add(body, head);
+    npc.position.set((Math.random() - 0.5) * 120, 1.6, (Math.random() - 0.5) * 120);
+    npc.userData = {
+      wanderAngle: Math.random() * Math.PI * 2,
+      wanderTimer: 0,
+      speed: 2 + Math.random(),
+      baseColor: bodyMaterial.color.clone(),
+      bodyMaterial,
+      avoidStrength: 4 + Math.random() * 2,
+      goal: new THREE.Vector3((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120),
+      job: ["Courier", "Barista", "Dispatcher", "Mechanic", "Pilot"][Math.floor(Math.random() * 5)],
+      voiceLine: ["Hey there!", "Stay safe out here.", "Rough weather today.", "Need a ride?", "Busy shift."][
+        Math.floor(Math.random() * 5)
+      ],
+      bobOffset: Math.random() * Math.PI * 2,
+    };
+    body.castShadow = true;
+    head.castShadow = true;
+    world.scene.add(npc);
+    world.npcs.push(npc);
   }
-  setFocus(state.focusIndex);
 }
 
-function setFocus(index) {
-  focusState.elements.forEach((el) => el.classList.remove("focus-ring"));
-  const target = focusState.elements[index];
-  if (!target) return;
-  target.classList.add("focus-ring");
-  target.focus({ preventScroll: true });
-}
-
-function moveFocus(direction) {
-  if (focusState.elements.length === 0) return;
-  state.focusIndex = (state.focusIndex + direction + focusState.elements.length) % focusState.elements.length;
-  setFocus(state.focusIndex);
-}
-
-function activateFocused() {
-  const target = focusState.elements[state.focusIndex];
-  if (!target) return;
-  if (target.tagName === "INPUT" && target.type === "range") return;
-  target.click();
-}
-
-function adjustFocusedSlider(delta) {
-  const target = focusState.elements[state.focusIndex];
-  if (!target || target.tagName !== "INPUT" || target.type !== "range") return;
-  const step = 2;
-  const value = Math.min(90, Math.max(30, Number(target.value) + delta * step));
-  target.value = value;
-  target.dispatchEvent(new Event("input"));
-}
-
-function handleGamepadInput(gamepad) {
-  const now = performance.now();
-  const leftAxisX = gamepad.axes[0] || 0;
-  const leftAxisY = gamepad.axes[1] || 0;
-  const rightAxisY = gamepad.axes[3] || 0;
-  const threshold = 0.5;
-
-  if (now - state.lastAxisMove > 180) {
-    if (leftAxisY > threshold || gamepad.buttons[13]?.pressed) {
-      moveFocus(1);
-      state.lastAxisMove = now;
-    } else if (leftAxisY < -threshold || gamepad.buttons[12]?.pressed) {
-      moveFocus(-1);
-      state.lastAxisMove = now;
-    }
-
-    if (rightAxisY > threshold) {
-      selectNextInventoryItem(1);
-      state.lastAxisMove = now;
-    } else if (rightAxisY < -threshold) {
-      selectNextInventoryItem(-1);
-      state.lastAxisMove = now;
-    }
-
-    if (leftAxisX > threshold || gamepad.buttons[15]?.pressed) {
-      adjustFocusedSlider(1);
-      state.lastAxisMove = now;
-    } else if (leftAxisX < -threshold || gamepad.buttons[14]?.pressed) {
-      adjustFocusedSlider(-1);
-      state.lastAxisMove = now;
-    }
-  }
-
-  if (now - state.lastButtonPress > 200) {
-    if (gamepad.buttons[0]?.pressed) {
-      activateFocused();
-      state.lastButtonPress = now;
-    }
-    if (gamepad.buttons[1]?.pressed) {
-      resetGame();
-      state.lastButtonPress = now;
-    }
-    if (gamepad.buttons[2]?.pressed) {
-      useSelectedItem();
-      state.lastButtonPress = now;
-    }
-    if (gamepad.buttons[3]?.pressed) {
-      dropSelectedItem();
-      state.lastButtonPress = now;
-    }
-    if (gamepad.buttons[9]?.pressed && sceneState.fpControls) {
-      sceneState.fpControls.lock();
-      state.lastButtonPress = now;
-    }
+function buildPolice() {
+  clearMeshes(world.police);
+  const geometry = new THREE.CapsuleGeometry(0.8, 1.6, 4, 8);
+  for (let i = 0; i < 4; i += 1) {
+    const material = new THREE.MeshStandardMaterial({ color: 0x4fd2ff });
+    const officer = new THREE.Mesh(geometry, material);
+    officer.position.set((Math.random() - 0.5) * 80, 1.6, (Math.random() - 0.5) * 80);
+    officer.userData = {
+      patrolAngle: Math.random() * Math.PI * 2,
+      speed: 3.5,
+    };
+    officer.castShadow = true;
+    world.scene.add(officer);
+    world.police.push(officer);
   }
 }
 
-function pollGamepads() {
-  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-  const xboxPad = Array.from(gamepads).find((pad) => pad && pad.mapping === "standard");
-  if (xboxPad) {
-    if (controllerStatus) controllerStatus.textContent = `Xbox Controller Connected (${xboxPad.id})`;
-    if (!state.controllerActive) {
-      state.controllerActive = true;
-      syncFocusableElements();
-    }
-    handleGamepadInput(xboxPad);
+function buildCars() {
+  clearMeshes(world.cars);
+  const carMaterial = new THREE.MeshStandardMaterial({ color: 0xff4d6d, metalness: 0.3, roughness: 0.4 });
+  for (let i = 0; i < state.trafficCount; i += 1) {
+    const geometry = new THREE.BoxGeometry(3.5, 1.4, 6.5);
+    const car = new THREE.Mesh(geometry, carMaterial.clone());
+    car.material.color.setHSL(0.95 - i * 0.1, 0.6, 0.5);
+    car.position.set(-20 + i * 12, 0.8, 10 + i * 6);
+    car.userData = {
+      velocity: new THREE.Vector3(),
+      ai: i !== 0,
+      lane: i,
+      heading: Math.PI * 0.5,
+      speed: 0,
+      maxSpeed: 18 - i * 2,
+      direction: i % 2 === 0 ? 1 : -1,
+    };
+    car.castShadow = true;
+    world.scene.add(car);
+    world.cars.push(car);
+  }
+}
+
+function buildPlane() {
+  const geometry = new THREE.BoxGeometry(5, 1, 8);
+  const material = new THREE.MeshStandardMaterial({ color: 0x9aa7ff, metalness: 0.4, roughness: 0.3 });
+  const plane = new THREE.Mesh(geometry, material);
+  plane.position.set(-60, 1.2, -60);
+  plane.castShadow = true;
+  plane.userData = {
+    velocity: new THREE.Vector3(),
+    heading: Math.PI * 0.2,
+    speed: 0,
+    maxSpeed: 26,
+  };
+  world.scene.add(plane);
+  world.plane = plane;
+}
+
+function buildClouds() {
+  const cloudGeometry = new THREE.PlaneGeometry(18, 10);
+  for (let i = 0; i < 8; i += 1) {
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.5,
+    });
+    const cloud = new THREE.Mesh(cloudGeometry, material);
+    cloud.position.set((Math.random() - 0.5) * 200, 35 + Math.random() * 15, (Math.random() - 0.5) * 200);
+    cloud.rotation.y = Math.random() * Math.PI * 2;
+    world.scene.add(cloud);
+    world.clouds.push(cloud);
+  }
+}
+
+function buildRain() {
+  const rainGeometry = new THREE.BufferGeometry();
+  const dropCount = 800;
+  const positions = new Float32Array(dropCount * 3);
+  for (let i = 0; i < dropCount; i += 1) {
+    positions[i * 3] = (Math.random() - 0.5) * 200;
+    positions[i * 3 + 1] = Math.random() * 60;
+    positions[i * 3 + 2] = (Math.random() - 0.5) * 200;
+  }
+  rainGeometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  const rainMaterial = new THREE.PointsMaterial({ color: 0x88c6ff, size: 0.2, transparent: true, opacity: 0.6 });
+  const rain = new THREE.Points(rainGeometry, rainMaterial);
+  rain.visible = false;
+  world.scene.add(rain);
+  world.rain = rain;
+}
+
+function handleResize() {
+  if (!world.renderer || !world.camera) return;
+  const width = sceneCanvas.clientWidth;
+  const height = sceneCanvas.clientHeight;
+  world.camera.aspect = width / height;
+  world.camera.updateProjectionMatrix();
+  world.renderer.setSize(width, height, false);
+}
+
+function updateDayNight(delta) {
+  state.timeOfDay = (state.timeOfDay + delta * 0.2) % 24;
+  const t = state.timeOfDay / 24;
+  const angle = t * Math.PI * 2;
+  world.sunLight.position.set(Math.cos(angle) * 40, 30 + Math.sin(angle) * 30, Math.sin(angle) * 40);
+
+  const intensity = Math.max(0.2, Math.sin(angle) + 0.5);
+  world.sunLight.intensity = intensity * weatherStates[state.weatherIndex].intensity;
+  world.ambientLight.intensity = 0.3 + intensity * 0.4;
+
+  const skyColor = new THREE.Color().setHSL(0.62, 0.5, 0.12 + intensity * 0.35);
+  world.scene.background = skyColor;
+  world.scene.fog.color = skyColor;
+
+  const hours = Math.floor(state.timeOfDay);
+  const minutes = Math.floor((state.timeOfDay - hours) * 60);
+  hudTime.textContent = `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+}
+
+function updateWeather(delta) {
+  state.weatherTimer += delta * state.weatherRate;
+  if (state.weatherTimer > 45) {
+    state.weatherTimer = 0;
+    state.weatherIndex = (state.weatherIndex + 1) % weatherStates.length;
+    pushEvent(`Weather update: ${weatherStates[state.weatherIndex].label}.`);
+    state.windDirection = new THREE.Vector2(Math.random() * 2 - 1, Math.random() * 0.4 - 0.2).normalize();
+  }
+
+  const currentWeather = weatherStates[state.weatherIndex];
+  hudWeather.textContent = currentWeather.label;
+  world.scene.fog.color.setHex(currentWeather.fog);
+  world.rain.visible = currentWeather.label === "Rain" || currentWeather.label === "Storm";
+  if (currentWeather.label === "Storm" && Math.random() < 0.02) {
+    world.ambientLight.intensity = 1.2;
   } else {
-    if (controllerStatus) controllerStatus.textContent = "Searching...";
-    state.controllerActive = false;
+    world.ambientLight.intensity = 0.3 + Math.max(0.2, Math.sin(state.timeOfDay / 24 * Math.PI * 2) + 0.5) * 0.4;
   }
-  requestAnimationFrame(pollGamepads);
 }
 
-if (startBtn) {
-  startBtn.addEventListener("click", () => {
-    playTone(600, 0.2);
-    if (alertLevel) {
-      alertLevel.textContent = "On Watch";
-      alertLevel.style.color = "var(--accent)";
+function updateRain(delta) {
+  if (!world.rain.visible) return;
+  const positions = world.rain.geometry.attributes.position.array;
+  for (let i = 1; i < positions.length; i += 3) {
+    positions[i] -= delta * 30;
+    if (positions[i] < 0) {
+      positions[i] = 60;
     }
+  }
+  world.rain.geometry.attributes.position.needsUpdate = true;
+}
+
+function updateClouds(delta) {
+  world.clouds.forEach((cloud, index) => {
+    const speed = state.cloudSpeed * (1 + index * 0.2);
+    cloud.position.x += delta * speed * state.windDirection.x * 6;
+    cloud.position.z += delta * speed * state.windDirection.y * 6;
+    if (cloud.position.x > 120) cloud.position.x = -120;
+    if (cloud.position.x < -120) cloud.position.x = 120;
+    if (cloud.position.z > 120) cloud.position.z = -120;
+    if (cloud.position.z < -120) cloud.position.z = 120;
   });
 }
 
-if (resetBtn) {
-  resetBtn.addEventListener("click", resetGame);
-}
-
-if (soundBtn) {
-  soundBtn.addEventListener("click", () => {
-    state.soundOn = !state.soundOn;
-    soundBtn.textContent = `Sound: ${state.soundOn ? "On" : "Off"}`;
-    playTone(420, 0.1);
-  });
-}
-
-if (useItemBtn) {
-  useItemBtn.addEventListener("click", useSelectedItem);
-}
-if (dropItemBtn) {
-  dropItemBtn.addEventListener("click", dropSelectedItem);
-}
-
-if (menuStartBtn) {
-  menuStartBtn.addEventListener("click", () => {
-    mainMenu?.classList.add("hidden");
-    startLoading("Opening the block...");
-    if (sceneState.ready) {
-      setTimeout(stopLoading, 600);
+function updateNPCs(delta) {
+  world.npcs.forEach((npc) => {
+    npc.userData.wanderTimer -= delta;
+    if (npc.userData.wanderTimer <= 0) {
+      npc.userData.wanderAngle = Math.random() * Math.PI * 2;
+      npc.userData.wanderTimer = 2 + Math.random() * 4;
     }
-  });
-}
-
-sceneCanvas?.addEventListener("click", () => {
-  if (!sceneState.fpControls) return;
-  sceneState.fpControls.lock();
-});
-
-if (fullscreenBtn) {
-  fullscreenBtn.addEventListener("click", async () => {
-    if (!document.fullscreenElement) {
-      await document.documentElement.requestFullscreen();
-      document.body.classList.add("fullscreen");
-      fullscreenBtn.textContent = "Exit Fullscreen";
+    const distance = npc.position.distanceTo(world.target);
+    const memory = state.npcMemory.get(npc) || { familiarity: 0, lastSpoke: 0 };
+    if (distance < 6) {
+      memory.familiarity = Math.min(1, memory.familiarity + delta * 0.2);
+      if (memory.familiarity > 0.6 && performance.now() - memory.lastSpoke > 8000) {
+        speakNPC(npc.userData.voiceLine);
+        memory.lastSpoke = performance.now();
+      }
     } else {
-      await document.exitFullscreen();
-      document.body.classList.remove("fullscreen");
-      fullscreenBtn.textContent = "Enter Fullscreen";
+      memory.familiarity = Math.max(0, memory.familiarity - delta * 0.05);
+    }
+    state.npcMemory.set(npc, memory);
+    const steering = new THREE.Vector3();
+    if (distance < 10) {
+      const away = npc.position.clone().sub(world.target).normalize();
+      steering.add(away.multiplyScalar(npc.userData.avoidStrength));
+    }
+    if (npc.position.distanceTo(npc.userData.goal) < 4) {
+      npc.userData.goal.set((Math.random() - 0.5) * 120, 0, (Math.random() - 0.5) * 120);
+    }
+    const goalDirection = npc.userData.goal.clone().sub(npc.position).normalize();
+    steering.add(goalDirection.multiplyScalar(1.5));
+    world.npcs.forEach((other) => {
+      if (other === npc) return;
+      const separation = npc.position.distanceTo(other.position);
+      if (separation < 3) {
+        steering.add(npc.position.clone().sub(other.position).normalize().multiplyScalar(2));
+      }
+    });
+    const weatherFactor = weatherStates[state.weatherIndex].label === "Storm" ? 0.7 : 1;
+    npc.position.add(steering.multiplyScalar(npc.userData.speed * delta * 0.3 * weatherFactor));
+    npc.position.y = 1.6 + Math.sin(performance.now() * 0.002 + npc.userData.bobOffset) * 0.08;
+    const moodColor = distance < 6 ? new THREE.Color(0x4fd2ff) : npc.userData.baseColor;
+    npc.userData.bodyMaterial.color.copy(moodColor);
+  });
+}
+
+function updatePolice(delta) {
+  world.police.forEach((officer) => {
+    const distance = officer.position.distanceTo(world.target);
+    const direction = world.target.clone().sub(officer.position).normalize();
+    if (distance < 25) {
+      officer.position.add(direction.multiplyScalar(officer.userData.speed * delta));
+    } else {
+      officer.userData.patrolAngle += delta * 0.6;
+      officer.position.x += Math.cos(officer.userData.patrolAngle) * delta * 2;
+      officer.position.z += Math.sin(officer.userData.patrolAngle) * delta * 2;
     }
   });
 }
 
-document.addEventListener("fullscreenchange", () => {
-  if (!fullscreenBtn) return;
-  const isFullscreen = Boolean(document.fullscreenElement);
-  document.body.classList.toggle("fullscreen", isFullscreen);
-  fullscreenBtn.textContent = isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen";
-});
-
-window.addEventListener("gamepadconnected", (event) => {
-  if (controllerStatus) {
-    controllerStatus.textContent = `Xbox Controller Connected (${event.gamepad.id})`;
-  }
-  state.controllerActive = true;
-});
-
-window.addEventListener("gamepaddisconnected", () => {
-  if (controllerStatus) controllerStatus.textContent = "Searching...";
-  state.controllerActive = false;
-});
-
-document.addEventListener("keydown", (event) => {
-  if (!sceneState.fpControls?.isLocked) return;
-  if (event.code === "KeyW") sceneState.fpMove.forward = true;
-  if (event.code === "KeyS") sceneState.fpMove.backward = true;
-  if (event.code === "KeyA") sceneState.fpMove.left = true;
-  if (event.code === "KeyD") sceneState.fpMove.right = true;
-});
-
-document.addEventListener("keyup", (event) => {
-  if (event.code === "KeyW") sceneState.fpMove.forward = false;
-  if (event.code === "KeyS") sceneState.fpMove.backward = false;
-  if (event.code === "KeyA") sceneState.fpMove.left = false;
-  if (event.code === "KeyD") sceneState.fpMove.right = false;
-});
-
-function updateFirstPerson() {
-  if (!sceneState.fpControls?.isLocked) return;
-  const delta = 0.016;
-  sceneState.fpVelocity.x -= sceneState.fpVelocity.x * 8.0 * delta;
-  sceneState.fpVelocity.z -= sceneState.fpVelocity.z * 8.0 * delta;
-  sceneState.fpDirection.z = Number(sceneState.fpMove.forward) - Number(sceneState.fpMove.backward);
-  sceneState.fpDirection.x = Number(sceneState.fpMove.right) - Number(sceneState.fpMove.left);
-  sceneState.fpDirection.normalize();
-  const speed = 8.0;
-  if (sceneState.fpMove.forward || sceneState.fpMove.backward) {
-    sceneState.fpVelocity.z -= sceneState.fpDirection.z * speed * delta;
-  }
-  if (sceneState.fpMove.left || sceneState.fpMove.right) {
-    sceneState.fpVelocity.x -= sceneState.fpDirection.x * speed * delta;
-  }
-  sceneState.fpControls.moveRight(-sceneState.fpVelocity.x * delta);
-  sceneState.fpControls.moveForward(-sceneState.fpVelocity.z * delta);
+function updateTraffic(delta) {
+  world.cars.forEach((car) => {
+    if (!car.userData.ai) return;
+    const targetSpeed = car.userData.maxSpeed * (state.weatherIndex === 2 ? 0.6 : 1);
+    car.userData.speed = THREE.MathUtils.lerp(car.userData.speed, targetSpeed, 0.02);
+    car.position.x += car.userData.direction * car.userData.speed * delta * 0.5;
+    car.position.z += Math.sin(car.userData.heading) * delta * 0.4;
+    car.rotation.y = car.userData.direction > 0 ? Math.PI * 0.5 : -Math.PI * 0.5;
+    if (car.position.x > 110 || car.position.x < -110) {
+      car.userData.direction *= -1;
+      car.userData.heading += Math.PI * 0.25;
+    }
+  });
 }
 
-function selectNextInventoryItem(direction) {
-  if (state.inventoryOrder.length === 0) return;
-  state.selectedItemIndex =
-    (state.selectedItemIndex + direction + state.inventoryOrder.length) % state.inventoryOrder.length;
+function updatePlayer(delta) {
+  const target = state.playerInVehicle ? state.playerInVehicle : state.playerInPlane ? world.plane : world.player;
+  const isOnFoot = !state.playerInVehicle && !state.playerInPlane;
+  if (state.playerInVehicle) {
+    updateVehicleMovement(state.playerInVehicle, delta, 12);
+    return;
+  }
+  if (state.playerInPlane) {
+    updatePlaneMovement(world.plane, delta);
+    return;
+  }
+
+  const speed = 6;
+  const movement = new THREE.Vector3();
+  const inputX = state.input.right - state.input.left + state.analog.x;
+  const inputZ = state.input.backward - state.input.forward + state.analog.y;
+  movement.set(inputX, 0, inputZ);
+  if (movement.lengthSq() > 0) {
+    movement.normalize().multiplyScalar(speed * delta);
+    world.player.position.add(movement);
+    updateTutorialStep("move", true);
+  }
+
+  world.target.copy(target.position);
+
+  if (world.weaponMesh) {
+    world.weaponMesh.visible = isOnFoot;
+    world.weaponMesh.position.set(world.player.position.x + 0.6, world.player.position.y - 0.3, world.player.position.z + 0.8);
+  }
+}
+
+function updateVehicleMovement(vehicle, delta, speed) {
+  const steer = state.input.right - state.input.left + state.analog.x;
+  const throttle =
+    (state.input.forward ? 1 : 0) -
+    (state.input.backward ? 1 : 0) -
+    state.analog.y +
+    state.analogThrottle;
+  const accel = throttle * speed;
+  vehicle.userData.speed = THREE.MathUtils.clamp(
+    vehicle.userData.speed + accel * delta * 6,
+    -vehicle.userData.maxSpeed * 0.4,
+    vehicle.userData.maxSpeed,
+  );
+  const turnRate = 2.2 * (Math.abs(vehicle.userData.speed) / vehicle.userData.maxSpeed + 0.2);
+  vehicle.userData.heading += steer * delta * turnRate;
+  vehicle.rotation.y = vehicle.userData.heading;
+  vehicle.position.x += Math.sin(vehicle.userData.heading) * vehicle.userData.speed * delta;
+  vehicle.position.z += Math.cos(vehicle.userData.heading) * vehicle.userData.speed * delta;
+  world.target.copy(vehicle.position);
+}
+
+function updatePlaneMovement(plane, delta) {
+  const steer = state.input.right - state.input.left + state.analog.x;
+  const throttle =
+    (state.input.forward ? 1 : 0) -
+    (state.input.backward ? 1 : 0) -
+    state.analog.y +
+    state.analogThrottle;
+  plane.userData.speed = THREE.MathUtils.clamp(
+    plane.userData.speed + throttle * delta * 8,
+    0,
+    plane.userData.maxSpeed,
+  );
+  plane.userData.heading += steer * delta * 1.4;
+  plane.rotation.y = plane.userData.heading;
+  plane.position.x += Math.sin(plane.userData.heading) * plane.userData.speed * delta;
+  plane.position.z += Math.cos(plane.userData.heading) * plane.userData.speed * delta;
+  plane.position.y = 8 + Math.sin(Date.now() * 0.001) * 2 + plane.userData.speed * 0.05;
+  world.target.copy(plane.position);
+}
+
+function updateCamera(delta) {
+  const desiredPosition = world.target.clone().add(world.cameraOffset);
+  world.camera.position.lerp(desiredPosition, 0.08);
+  world.camera.lookAt(world.target);
+}
+
+function adjustCameraZoom(delta) {
+  const zoomTarget = THREE.MathUtils.clamp(world.cameraOffset.length() + delta, 8, 30);
+  world.cameraOffset.setLength(zoomTarget);
+}
+
+function togglePause() {
+  state.paused = !state.paused;
+  pauseMenu.classList.toggle("hidden", !state.paused);
+}
+
+function handleMinimapClick(event, canvas) {
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const y = event.clientY - rect.top;
+  const size = canvas.width;
+  const scale = (size - 20) / 220;
+  const worldX = (x - size / 2) / scale;
+  const worldZ = (y - size / 2) / scale;
+  setWaypoint(new THREE.Vector3(worldX, 0, worldZ), "Custom Waypoint");
+}
+
+function updateHUDMode() {
+  if (state.playerInPlane) {
+    state.mode = "Flying";
+  } else if (state.playerInVehicle) {
+    state.mode = "Driving";
+  } else {
+    state.mode = "On Foot";
+  }
+  hudMode.textContent = state.mode;
+}
+
+function updateEvents(delta) {
+  state.eventTimer += delta;
+  if (state.eventTimer > 12) {
+    state.eventTimer = 0;
+    const event = randomEvents[Math.floor(Math.random() * randomEvents.length)];
+    const zone = getZoneLabel(world.target);
+    pushEvent(`${event} (${zone}).`);
+  }
+}
+
+function getZoneLabel(position) {
+  if (state.currentInterior) {
+    return state.currentInterior.name;
+  }
+  if (position.x < -30 && position.z < -30) {
+    return "Airstrip";
+  }
+  if (position.x > 40 && position.z > 20) {
+    return "Harbor Loop";
+  }
+  if (position.z < -40) {
+    return "Old Town";
+  }
+  if (position.x > 40) {
+    return "Stadium District";
+  }
+  return "Downtown";
+}
+
+function updateZone() {
+  hudLocation.textContent = getZoneLabel(world.target);
+}
+
+function findNearbyInterior() {
+  return world.interiors.find((interior) => interior.door.position.distanceTo(world.player.position) < 5);
+}
+
+function enterInterior(interior) {
+  state.currentInterior = interior;
+  interior.interiorGroup.visible = true;
+  interior.exterior.visible = false;
+  interior.door.visible = false;
+  world.player.position.copy(interior.entryPoint);
+  pushEvent(`Entered ${interior.name}.`);
+}
+
+function exitInterior() {
+  if (!state.currentInterior) return;
+  const interior = state.currentInterior;
+  interior.interiorGroup.visible = false;
+  interior.exterior.visible = true;
+  interior.door.visible = true;
+  world.player.position.copy(interior.exitPoint);
+  pushEvent(`Exited ${interior.name}.`);
+  state.currentInterior = null;
+}
+
+function handleInteract() {
+  if (state.currentInterior) {
+    exitInterior();
+    return;
+  }
+  const nearbyInterior = findNearbyInterior();
+  if (nearbyInterior) {
+    enterInterior(nearbyInterior);
+    updateTutorialStep("enter", true);
+    return;
+  }
+  toggleVehicle();
+  updateTutorialStep("enter", true);
+}
+
+function animate() {
+  if (!state.sceneReady) return;
+  requestAnimationFrame(animate);
+  if (state.paused) {
+    drawMinimap(minimap);
+    drawMinimap(pauseMinimap);
+    return;
+  }
+  const delta = Math.min(0.05, clock.getDelta());
+  updateDayNight(delta);
+  updateWeather(delta);
+  updateRain(delta);
+  updateClouds(delta);
+  updateNPCs(delta);
+  updatePolice(delta);
+  updateTraffic(delta);
+  updatePlayer(delta);
+  updateCamera(delta);
+  updateHUDMode();
+  updateEvents(delta);
+  updateZone();
+  drawMinimap(minimap);
+  drawMinimap(pauseMinimap);
+  world.renderer.render(world.scene, world.camera);
+}
+
+function handleKeyDown(event) {
+  if (event.repeat) return;
+  switch (event.key.toLowerCase()) {
+    case "w":
+    case "arrowup":
+      state.input.forward = true;
+      break;
+    case "s":
+    case "arrowdown":
+      state.input.backward = true;
+      break;
+    case "a":
+    case "arrowleft":
+      state.input.left = true;
+      break;
+    case "d":
+    case "arrowright":
+      state.input.right = true;
+      break;
+    case "e":
+      handleInteract();
+      break;
+    case "h":
+      toggleHud();
+      break;
+    case "t":
+      toggleStoryPanel();
+      break;
+    case "i":
+      toggleInventoryPanel();
+      break;
+    case "u":
+      toggleTutorialPanel();
+      break;
+    case "p":
+      togglePause();
+      break;
+    case "c":
+      switchCamera();
+      break;
+    case "z":
+      adjustCameraZoom(-1);
+      break;
+    case "x":
+      adjustCameraZoom(1);
+      break;
+    case "1":
+      state.activeWeaponIndex = 0;
+      renderInventory();
+      break;
+    case "2":
+      state.activeWeaponIndex = 1;
+      renderInventory();
+      break;
+    case "3":
+      state.activeWeaponIndex = 2;
+      renderInventory();
+      break;
+    case "f":
+      fireWeapon();
+      break;
+    default:
+      break;
+  }
+}
+
+function handleKeyUp(event) {
+  switch (event.key.toLowerCase()) {
+    case "w":
+    case "arrowup":
+      state.input.forward = false;
+      break;
+    case "s":
+    case "arrowdown":
+      state.input.backward = false;
+      break;
+    case "a":
+    case "arrowleft":
+      state.input.left = false;
+      break;
+    case "d":
+    case "arrowright":
+      state.input.right = false;
+      break;
+    default:
+      break;
+  }
+}
+
+function toggleVehicle() {
+  if (state.playerInVehicle || state.playerInPlane) {
+    if (state.playerInPlane) {
+      state.playerInPlane = false;
+      world.player.position.copy(world.plane.position).add(new THREE.Vector3(2, 0, 2));
+    } else {
+      world.player.position.copy(state.playerInVehicle.position).add(new THREE.Vector3(2, 0, 2));
+      state.playerInVehicle = null;
+    }
+    world.player.visible = true;
+    return;
+  }
+
+  const nearbyCar = world.cars.find((car) => car.position.distanceTo(world.player.position) < 6);
+  if (nearbyCar) {
+    state.playerInVehicle = nearbyCar;
+    world.player.visible = false;
+    pushEvent("Entered vehicle: Street Sedan.");
+    return;
+  }
+
+  if (world.plane.position.distanceTo(world.player.position) < 8) {
+    state.playerInPlane = true;
+    world.player.visible = false;
+    pushEvent("Entered aircraft: Metro Skimmer.");
+  }
+}
+
+function toggleHud() {
+  state.hudVisible = !state.hudVisible;
+  hud.classList.toggle("hidden", !state.hudVisible);
+}
+
+function toggleStoryPanel() {
+  state.storyVisible = !state.storyVisible;
+  storyPanel.classList.toggle("hidden", !state.storyVisible);
+  eventPanel.classList.toggle("hidden", !state.storyVisible);
+}
+
+function toggleInventoryPanel() {
+  state.inventoryVisible = !state.inventoryVisible;
+  inventoryPanel.classList.toggle("hidden", !state.inventoryVisible);
+  if (state.inventoryVisible) {
+    updateTutorialStep("inventory", true);
+  }
+}
+
+function toggleTutorialPanel() {
+  state.tutorialVisible = !state.tutorialVisible;
+  tutorialPanel.classList.toggle("hidden", !state.tutorialVisible);
+}
+
+function switchCamera() {
+  state.cameraIndex = (state.cameraIndex + 1) % world.cameraOffsets.length;
+  world.cameraOffset.copy(world.cameraOffsets[state.cameraIndex]);
+}
+
+function cycleWeapon(direction) {
+  const count = state.inventory.length;
+  state.activeWeaponIndex = (state.activeWeaponIndex + direction + count) % count;
   renderInventory();
 }
 
-renderHouses();
-updateStatus();
-renderInventory();
-renderBehaviorFeed();
-renderProfile(null);
-if (hudLocation) hudLocation.textContent = "Street";
-setInterval(tickBehaviors, 12000);
-requestAnimationFrame(pollGamepads);
-if (mainMenu?.classList.contains("hidden")) {
-  startLoading("Loading neighborhood...");
+function fireWeapon() {
+  const weapon = state.inventory[state.activeWeaponIndex];
+  if (!weapon || weapon.ammo <= 0) {
+    pushEvent("Out of ammo.");
+    return;
+  }
+  weapon.ammo -= 1;
+  pushEvent(`${weapon.name} fired.`);
+  playSfx(520, 0.06);
+  updateTutorialStep("fire", true);
+  if (world.weaponMesh) {
+    world.weaponMesh.scale.set(1.2, 1.2, 1.4);
+    setTimeout(() => {
+      world.weaponMesh.scale.set(1, 1, 1);
+    }, 80);
+  }
+  renderInventory();
 }
-initScene();
+
+function speakNPC(message) {
+  if (!window.speechSynthesis) return;
+  const utterance = new SpeechSynthesisUtterance(message);
+  utterance.rate = 1;
+  utterance.pitch = 1.1;
+  window.speechSynthesis.speak(utterance);
+}
+
+function updateController() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const gamepad = Array.from(gamepads).find((pad) => pad);
+  if (gamepad) {
+    state.controllerActive = true;
+    controllerStatus.textContent = gamepad.id.includes("Xbox") ? "Xbox Controller Connected" : "Controller Connected";
+    state.analog.x = Math.abs(gamepad.axes[0] || 0) > 0.15 ? gamepad.axes[0] : 0;
+    state.analog.y = Math.abs(gamepad.axes[1] || 0) > 0.15 ? gamepad.axes[1] : 0;
+    const triggerForward = gamepad.buttons[7]?.value || 0;
+    const triggerBackward = gamepad.buttons[6]?.value || 0;
+    state.analogThrottle = triggerForward - triggerBackward;
+    const actionPressed = gamepad.buttons[0]?.pressed;
+    const hudPressed = gamepad.buttons[1]?.pressed;
+    const storyPressed = gamepad.buttons[2]?.pressed;
+    const cameraPressed = gamepad.buttons[3]?.pressed;
+    const inventoryPressed = gamepad.buttons[4]?.pressed;
+    const nextWeaponPressed = gamepad.buttons[5]?.pressed;
+    const firePressed = gamepad.buttons[11]?.pressed;
+    const tutorialPressed = gamepad.buttons[8]?.pressed;
+    const pausePressed = gamepad.buttons[9]?.pressed;
+    const zoomInPressed = gamepad.buttons[12]?.pressed;
+    const zoomOutPressed = gamepad.buttons[13]?.pressed;
+    if (actionPressed && !state.actionPressed) {
+      handleInteract();
+    }
+    if (hudPressed && !state.hudPressed) {
+      toggleHud();
+    }
+    if (storyPressed && !state.storyPressed) {
+      toggleStoryPanel();
+    }
+    if (cameraPressed && !state.cameraPressed) {
+      switchCamera();
+    }
+    if (inventoryPressed && !state.inventoryPressed) {
+      toggleInventoryPanel();
+    }
+    if (nextWeaponPressed && !state.nextWeaponPressed) {
+      cycleWeapon(1);
+    }
+    if (firePressed && !state.firePressed) {
+      fireWeapon();
+    }
+    if (tutorialPressed && !state.tutorialPressed) {
+      toggleTutorialPanel();
+    }
+    if (pausePressed && !state.pausePressed) {
+      togglePause();
+    }
+    if (zoomInPressed) {
+      adjustCameraZoom(-0.5);
+    }
+    if (zoomOutPressed) {
+      adjustCameraZoom(0.5);
+    }
+    if (!mainMenu.classList.contains("hidden") && gamepad.buttons[9]?.pressed) {
+      startExperience();
+    }
+    if (!mainMenu.classList.contains("hidden") && gamepad.buttons[3]?.pressed && !state.cameraPressed) {
+      toggleMenuSettings();
+    }
+    state.actionPressed = Boolean(actionPressed);
+    state.hudPressed = Boolean(hudPressed);
+    state.storyPressed = Boolean(storyPressed);
+    state.cameraPressed = Boolean(cameraPressed);
+    state.inventoryPressed = Boolean(inventoryPressed);
+    state.nextWeaponPressed = Boolean(nextWeaponPressed);
+    state.firePressed = Boolean(firePressed);
+    state.tutorialPressed = Boolean(tutorialPressed);
+    state.pausePressed = Boolean(pausePressed);
+  } else {
+    state.controllerActive = false;
+    controllerStatus.textContent = "Searching...";
+    state.analog.x = 0;
+    state.analog.y = 0;
+    state.actionPressed = false;
+    state.hudPressed = false;
+    state.storyPressed = false;
+    state.cameraPressed = false;
+    state.inventoryPressed = false;
+    state.nextWeaponPressed = false;
+    state.firePressed = false;
+    state.tutorialPressed = false;
+    state.pausePressed = false;
+    state.analogThrottle = 0;
+  }
+  requestAnimationFrame(updateController);
+}
+
+function handleGamepadConnect(event) {
+  if (event.gamepad) {
+    controllerStatus.textContent = event.gamepad.id.includes("Xbox") ? "Xbox Controller Connected" : "Controller Connected";
+  }
+}
+
+function handleGamepadDisconnect() {
+  controllerStatus.textContent = "Searching...";
+}
+
+function syncGamepadStatus() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  const connected = Array.from(gamepads).find((pad) => pad);
+  if (connected) {
+    controllerStatus.textContent = connected.id.includes("Xbox") ? "Xbox Controller Connected" : "Controller Connected";
+  }
+}
+
+function startExperience() {
+  mainMenu.classList.add("hidden");
+  menuSettings.classList.add("hidden");
+  applySettings();
+  initScene();
+  initStoryList();
+  initTutorial();
+  pushEvent("Welcome to Metro Drift. Dispatch live!");
+}
+
+function handleFullscreen() {
+  if (!document.fullscreenElement) {
+    sceneWrap.requestFullscreen?.();
+  } else {
+    document.exitFullscreen?.();
+  }
+}
+
+document.addEventListener("keydown", handleKeyDown);
+document.addEventListener("keyup", handleKeyUp);
+window.addEventListener("gamepadconnected", handleGamepadConnect);
+window.addEventListener("gamepaddisconnected", handleGamepadDisconnect);
+startBtn?.addEventListener("click", startExperience);
+menuStartBtn?.addEventListener("click", startExperience);
+menuStoryBtn?.addEventListener("click", () => {
+  mainMenu.classList.add("hidden");
+  menuSettings.classList.add("hidden");
+  applySettings();
+  initScene();
+  initStoryList();
+  initTutorial();
+});
+menuCreditsBtn?.addEventListener("click", () => {
+  pushEvent("Now playing: Metro Drift Theme.");
+});
+menuSettingsBtn?.addEventListener("click", toggleMenuSettings);
+settingsApplyBtn?.addEventListener("click", applySettings);
+fullscreenBtn?.addEventListener("click", handleFullscreen);
+toggleHudBtn?.addEventListener("click", toggleHud);
+toggleInventoryBtn?.addEventListener("click", toggleInventoryPanel);
+toggleTutorialBtn?.addEventListener("click", toggleTutorialPanel);
+pauseBtn?.addEventListener("click", togglePause);
+resumeBtn?.addEventListener("click", togglePause);
+mapBtn?.addEventListener("click", () => setWaypoint(world.target.clone(), "Resume Point"));
+minimap?.addEventListener("click", (event) => handleMinimapClick(event, minimap));
+pauseMinimap?.addEventListener("click", (event) => handleMinimapClick(event, pauseMinimap));
+
+updateController();
+syncGamepadStatus();
